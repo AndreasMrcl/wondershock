@@ -24,7 +24,7 @@ const SHOWS = [
   {
     id: 3, title: 'Celebrating Disability', subtitle: 'Bonnie & Anna Armistead',
     date: 'Apr 20, 2026', type: 'SHOW', typeColor: '#ec2b25',
-    img: 'https://images.unsplash.com/photo-1543269664-647163b02c9a?w=600&q=80',
+    img: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=600&q=80&auto=format&fit=crop',
   },
   {
     id: 4, title: 'Voice & Movement', subtitle: 'Intensive 2-Day Program',
