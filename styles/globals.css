@@ -1,20 +1,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --ws-red: #ec2b25;
-  --ws-gold: #f6bc05;
-  --ws-blue: #266adf;
-  --ws-cream: #f1f1ef;
-  --ws-sand: #dddbd8;
-  --ws-gray: #535353;
-  --ws-dark: #070d0e;
+@theme {
+  --color-ws-red:   #ec2b25;
+  --color-ws-gold:  #f6bc05;
+  --color-ws-blue:  #266adf;
+  --color-ws-cream: #f1f1ef;
+  --color-ws-sand:  #dddbd8;
+  --color-ws-gray:  #535353;
+  --color-ws-dark:  #070d0e;
+
+  --font-heading: var(--font-barlow), 'Barlow Condensed', sans-serif;
+  --font-body:    var(--font-dm-sans), 'DM Sans', sans-serif;
 }
 
-* {
+:root {
+  --ws-red:   #ec2b25;
+  --ws-gold:  #f6bc05;
+  --ws-blue:  #266adf;
+  --ws-cream: #f1f1ef;
+  --ws-sand:  #dddbd8;
+  --ws-gray:  #535353;
+  --ws-dark:  #070d0e;
+}
+
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -32,26 +43,19 @@ body {
   cursor: none;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: var(--ws-dark);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--ws-red);
-}
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--ws-dark); }
+::-webkit-scrollbar-thumb { background: var(--ws-red); }
 
-/* Custom cursor */
+/* ── Custom Cursor ── */
 .cursor-dot {
   width: 8px;
   height: 8px;
   background: var(--ws-red);
   border-radius: 50%;
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   pointer-events: none;
   z-index: 9999;
   transform: translate(-50%, -50%);
@@ -64,19 +68,14 @@ body {
   border: 1.5px solid rgba(236, 43, 37, 0.5);
   border-radius: 50%;
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   pointer-events: none;
   z-index: 9998;
   transform: translate(-50%, -50%);
   transition: width 0.3s, height 0.3s, border-color 0.3s;
 }
 
-body:hover .cursor-dot {
-  opacity: 1;
-}
-
-/* Nav styles */
+/* ── Nav Link ── */
 .nav-link {
   position: relative;
   letter-spacing: 0.12em;
@@ -88,116 +87,50 @@ body:hover .cursor-dot {
 .nav-link::after {
   content: '';
   position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 0;
-  height: 1px;
+  bottom: -2px; left: 0;
+  width: 0; height: 1px;
   background: var(--ws-red);
   transition: width 0.3s ease;
 }
 
-.nav-link:hover::after {
-  width: 100%;
-}
+.nav-link:hover::after { width: 100%; }
 
-/* Spotlight gradient */
-.spotlight-cone {
-  background: conic-gradient(
-    from 180deg at 50% 0%,
-    transparent 75deg,
-    rgba(255, 230, 150, 0.12) 90deg,
-    rgba(255, 220, 100, 0.22) 95deg,
-    rgba(255, 230, 150, 0.12) 100deg,
-    transparent 105deg
-  );
-}
-
-/* Text scramble effect */
-@keyframes flicker {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-/* Card hover */
-.show-card {
-  transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.show-card:hover {
-  transform: translateY(-8px);
-}
-
-/* Grain overlay */
+/* ── Grain overlay ── */
 .grain::before {
   content: '';
   position: fixed;
   inset: -50%;
-  width: 200%;
-  height: 200%;
+  width: 200%; height: 200%;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
   opacity: 0.028;
   pointer-events: none;
-  z-index: 9997;
+  z-index: 9990;
   animation: grain-move 8s steps(10) infinite;
 }
 
 @keyframes grain-move {
-  0%, 100% { transform: translate(0, 0); }
-  10% { transform: translate(-2%, -3%); }
-  20% { transform: translate(3%, 1%); }
-  30% { transform: translate(-1%, 4%); }
-  40% { transform: translate(2%, -2%); }
-  50% { transform: translate(-3%, 2%); }
-  60% { transform: translate(1%, -4%); }
-  70% { transform: translate(-2%, 3%); }
-  80% { transform: translate(3%, -1%); }
-  90% { transform: translate(-1%, 2%); }
+  0%,100% { transform: translate(0,0); }
+  10%     { transform: translate(-2%,-3%); }
+  20%     { transform: translate(3%,1%); }
+  30%     { transform: translate(-1%,4%); }
+  40%     { transform: translate(2%,-2%); }
+  50%     { transform: translate(-3%,2%); }
+  60%     { transform: translate(1%,-4%); }
+  70%     { transform: translate(-2%,3%); }
+  80%     { transform: translate(3%,-1%); }
+  90%     { transform: translate(-1%,2%); }
 }
 
-/* Section transitions */
-.section-reveal {
-  opacity: 0;
-  transform: translateY(40px);
-}
-
-/* Calendar cell */
-.cal-cell {
-  border: 1px solid rgba(221, 219, 216, 0.12);
-  transition: background 0.3s, border-color 0.3s;
-  min-height: 80px;
-}
-
-.cal-cell:hover {
-  background: rgba(236, 43, 37, 0.06);
-  border-color: rgba(236, 43, 37, 0.3);
-}
-
-.cal-cell.has-event {
-  background: rgba(236, 43, 37, 0.08);
-  border-color: rgba(236, 43, 37, 0.25);
-}
-
-/* Stage curtain */
+/* ── Stage curtain edges ── */
 .curtain-left, .curtain-right {
   position: absolute;
-  top: 0;
-  height: 100%;
-  width: 12%;
-  pointer-events: none;
-  z-index: 10;
+  top: 0; height: 100%; width: 12%;
+  pointer-events: none; z-index: 10;
 }
+.curtain-left  { left: 0;  background: linear-gradient(to right, rgba(7,13,14,0.95), transparent); }
+.curtain-right { right: 0; background: linear-gradient(to left,  rgba(7,13,14,0.95), transparent); }
 
-.curtain-left {
-  left: 0;
-  background: linear-gradient(to right, rgba(7,13,14,0.95) 0%, transparent 100%);
-}
-
-.curtain-right {
-  right: 0;
-  background: linear-gradient(to left, rgba(7,13,14,0.95) 0%, transparent 100%);
-}
-
-/* Event pill */
+/* ── Event pill ── */
 .event-pill {
   display: inline-flex;
   align-items: center;
@@ -209,18 +142,23 @@ body:hover .cursor-dot {
   text-transform: uppercase;
 }
 
-/* Footer */
+/* ── Footer line ── */
 .footer-line {
   height: 1px;
   background: linear-gradient(to right, transparent, rgba(236,43,37,0.5), transparent);
 }
 
-/* Horizontal scroll snap for what's on */
-.scroll-snap-x {
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
+/* ── Calendar cell ── */
+.cal-cell {
+  border: 1px solid rgba(221,219,216,0.12);
+  transition: background 0.3s, border-color 0.3s;
+  min-height: 80px;
 }
+.cal-cell:hover       { background: rgba(236,43,37,0.06); border-color: rgba(236,43,37,0.3); }
+.cal-cell.has-event   { background: rgba(236,43,37,0.08); border-color: rgba(236,43,37,0.25); }
 
-.scroll-snap-item {
-  scroll-snap-align: start;
+/* ── Show card hover ── */
+.show-card {
+  transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 }
+.show-card:hover { transform: translateY(-8px); }
