@@ -282,8 +282,8 @@ export default function Navbar() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.22 + i * 0.07, duration: 0.4 }}
-                      onMouseEnter={() => setHovered(`e${i}`)}
-                      onMouseLeave={() => setHovered(null)}
+                      onMouseEnter={e => { setHovered(`e${i}`); (e.currentTarget as HTMLElement).style.paddingLeft = '6px' }}
+                      onMouseLeave={e => { setHovered(null); (e.currentTarget as HTMLElement).style.paddingLeft = '0' }}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         textDecoration: 'none',
@@ -293,8 +293,6 @@ export default function Navbar() {
                         gap: 10,
                         transition: 'padding-left 0.25s ease',
                       }}
-                      onMouseEnterCapture={e => { (e.currentTarget as HTMLElement).style.paddingLeft = '6px' }}
-                      onMouseLeaveCapture={e => { (e.currentTarget as HTMLElement).style.paddingLeft = '0' }}
                     >
                       <div>
                         <motion.p
