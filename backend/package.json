@@ -1,7 +1,7 @@
 {
   "name": "wondershock-quiz-backend",
   "version": "1.0.0",
-  "description": "City Hunt Quiz Backend — Wondershock Theatre",
+  "description": "City Hunt Quiz Backend \u2014 Wondershock Theatre",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -9,7 +9,7 @@
     "migrate": "node migrations/run.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.20.0",
+    "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-s3": "^3.400.0",
     "@aws-sdk/s3-request-presigner": "^3.400.0",
     "bcrypt": "^5.1.1",

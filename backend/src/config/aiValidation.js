@@ -2,24 +2,33 @@
 'use strict'
 
 const Anthropic = require('@anthropic-ai/sdk')
-const ffmpeg    = require('fluent-ffmpeg')
 const os        = require('os')
 const path      = require('path')
 const fs        = require('fs')
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// ── MOCK MODE ──────────────────────────────────────────────────
+// Set AI_MOCK=true di .env untuk test tanpa kredit Anthropic
+const MOCK_MODE = process.env.AI_MOCK === 'true'
+
 /**
  * Validate an image buffer against an answer key using Claude Vision.
- *
- * @param {Buffer} imageBuffer
- * @param {string} mimeType          e.g. 'image/jpeg'
- * @param {string} answerKey         description of expected content
- * @param {number} threshold         confidence threshold (0–1), default 0.75
- * @returns {Promise<{passed:boolean, reason:string, confidence:number}>}
  */
 async function validateImage(imageBuffer, mimeType, answerKey, threshold = 0.75) {
+  // Normalize mime type — Claude hanya terima jpeg/png/gif/webp
+  const SUPPORTED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  const safeMime  = SUPPORTED.includes(mimeType) ? mimeType : 'image/jpeg'
+
   const base64 = imageBuffer.toString('base64')
+
+  // Mock mode — simulasi response AI
+  if (MOCK_MODE) {
+    console.log(`[AI MOCK] validateImage — answerKey: "${answerKey}"`)
+    // Simulasi: selalu lolos dengan confidence 0.9
+    // Ganti passed: false untuk test skenario gagal
+    return { passed: true, reason: '[MOCK] Foto terlihat sesuai dengan kunci jawaban', confidence: 0.9 }
+  }
 
   const response = await client.messages.create({
     model:      'claude-sonnet-4-20250514',
@@ -29,7 +38,7 @@ async function validateImage(imageBuffer, mimeType, answerKey, threshold = 0.75)
       content: [
         {
           type:   'image',
-          source: { type: 'base64', media_type: mimeType, data: base64 },
+          source: { type: 'base64', media_type: safeMime, data: base64 },
         },
         {
           type: 'text',
@@ -40,7 +49,7 @@ Kunci jawaban yang diharapkan terlihat di foto: "${answerKey}"
 Tugasmu: tentukan apakah foto ini menunjukkan hal tersebut.
 Perhatikan detail seperti nama tempat, bentuk bangunan, tulisan, atau objek spesifik.
 
-Jawab HANYA dalam format JSON berikut (tanpa teks lain, tanpa markdown backtick):
+Jawab HANYA dalam format JSON berikut (tanpa teks lain, tanpa markdown):
 {"passed": true/false, "reason": "penjelasan singkat dalam bahasa Indonesia", "confidence": 0.0-1.0}`,
         },
       ],
@@ -48,8 +57,8 @@ Jawab HANYA dalam format JSON berikut (tanpa teks lain, tanpa markdown backtick)
   })
 
   try {
-    const text  = response.content[0].text.trim()
-    const clean = text.replace(/```json|```/g, '').trim()
+    const text   = response.content[0].text.trim()
+    const clean  = text.replace(/```json|```/g, '').trim()
     const result = JSON.parse(clean)
     return {
       passed:     result.passed === true && Number(result.confidence || 0) >= threshold,
@@ -63,12 +72,17 @@ Jawab HANYA dalam format JSON berikut (tanpa teks lain, tanpa markdown backtick)
 
 /**
  * Extract 3 JPEG frames from a video buffer using ffmpeg.
- * Returns an array of Buffers (may be fewer than 3 if video is very short).
- *
- * @param {Buffer} videoBuffer
- * @returns {Promise<Buffer[]>}
+ * Returns null if ffmpeg is not available.
  */
 async function extractFrames(videoBuffer) {
+  let ffmpeg
+  try {
+    ffmpeg = require('fluent-ffmpeg')
+  } catch {
+    console.warn('[AI] fluent-ffmpeg tidak tersedia — skip frame extraction')
+    return null
+  }
+
   const tmpIn  = path.join(os.tmpdir(), `ws_in_${Date.now()}.mp4`)
   const tmpDir = path.join(os.tmpdir(), `ws_frames_${Date.now()}`)
 
@@ -78,8 +92,7 @@ async function extractFrames(videoBuffer) {
   await new Promise((resolve, reject) => {
     ffmpeg(tmpIn)
       .outputOptions([
-        '-vf', "select='eq(n\\,0)+eq(n\\,round(n/2))+gte(n\\,n-2)'",
-        '-vsync', '0',
+        '-vf', 'fps=1',
         '-frames:v', '3',
       ])
       .output(path.join(tmpDir, 'frame%d.jpg'))
@@ -94,7 +107,6 @@ async function extractFrames(videoBuffer) {
     if (fs.existsSync(p)) frames.push(fs.readFileSync(p))
   }
 
-  // Cleanup temp files
   try {
     fs.unlinkSync(tmpIn)
     fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -105,12 +117,6 @@ async function extractFrames(videoBuffer) {
 
 /**
  * Validate a video buffer using Claude Vision on extracted frames.
- * Returns passed = true as soon as any frame passes.
- *
- * @param {Buffer} videoBuffer
- * @param {string} answerKey
- * @param {number} threshold
- * @returns {Promise<{passed:boolean, reason:string, confidence:number}>}
  */
 async function validateVideo(videoBuffer, answerKey, threshold = 0.75) {
   let frames
@@ -118,7 +124,19 @@ async function validateVideo(videoBuffer, answerKey, threshold = 0.75) {
     frames = await extractFrames(videoBuffer)
   } catch (err) {
     console.error('[AI] Frame extraction error:', err.message)
-    return { passed: false, reason: 'Gagal memproses video — pastikan format MP4/MOV', confidence: 0 }
+    return {
+      passed:     false,
+      reason:     'Gagal memproses video — pastikan ffmpeg terinstall dan format MP4/MOV',
+      confidence: 0,
+    }
+  }
+
+  if (frames === null) {
+    return {
+      passed:     false,
+      reason:     'Server belum mendukung validasi video (ffmpeg tidak terinstall)',
+      confidence: 0,
+    }
   }
 
   if (frames.length === 0) {
@@ -130,7 +148,8 @@ async function validateVideo(videoBuffer, answerKey, threshold = 0.75) {
     if (result.passed) return result
   }
 
-  return { passed: false, reason: 'Tidak ada frame video yang cocok dengan kunci jawaban', confidence: 0 }
+  const last = await validateImage(frames[frames.length - 1], 'image/jpeg', answerKey, threshold)
+  return { passed: false, reason: last.reason, confidence: last.confidence }
 }
 
 module.exports = { validateImage, validateVideo }

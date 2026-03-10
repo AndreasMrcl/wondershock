@@ -99,10 +99,17 @@ router.post('/submit', auth, upload.single('file'), async (req, res) => {
       aiReason     = aiResult.reason
       aiConfidence = aiResult.confidence
 
-      // Upload file ke R2
-      const ext  = mimeType.split('/')[1].replace('quicktime', 'mov')
-      fileKey    = `answers/${session_id}/${question_id}/${uuidv4()}.${ext}`
-      fileUrl    = await uploadToR2(fileBuffer, fileKey, mimeType)
+      // Upload file ke R2 (skip jika credentials belum diset — dev mode)
+      const r2Ready = process.env.R2_ACCOUNT_ID && process.env.R2_ACCOUNT_ID !== 'your_cloudflare_account_id'
+      if (r2Ready) {
+        const ext  = mimeType.split('/')[1].replace('quicktime', 'mov')
+        fileKey    = `answers/${session_id}/${question_id}/${uuidv4()}.${ext}`
+        fileUrl    = await uploadToR2(fileBuffer, fileKey, mimeType)
+      } else {
+        console.warn('[answers] R2 credentials not set — skipping file upload (dev mode)')
+        fileUrl = null
+        fileKey = null
+      }
     }
 
     // ── Simpan jawaban ──

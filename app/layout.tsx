@@ -1,5 +1,7 @@
+// app/layout.tsx
 import type { Metadata } from 'next'
 import { Barlow_Condensed, DM_Sans } from 'next/font/google'
+import { AuthProvider } from '@/lib/authContext'
 import '../styles/globals.css'
 
 const barlowCondensed = Barlow_Condensed({
@@ -30,8 +32,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" className={`${barlowCondensed.variable} ${dmSans.variable}`}>
-      <body className="grain">
-        {children}
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
