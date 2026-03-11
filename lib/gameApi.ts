@@ -1,11 +1,11 @@
 // lib/gameApi.ts
-// Typed API client untuk City Hunt Quiz backend
+// Typed API client untuk City Hunt Quiz + Theatre backend
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('ws_quiz_token')
+  return localStorage.getItem('auth_token')
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -162,7 +162,11 @@ export const answersApi = {
 
   listAdmin: (params?: { question_id?: string; passed?: boolean }) => {
     const qs = params
-      ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString()
+      ? '?' + new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
       : ''
     return apiFetch<{ answers: Answer[] }>(`/api/answers/admin${qs}`)
   },
@@ -172,15 +176,15 @@ export const answersApi = {
 }
 
 // ── Token helpers ──
+// Semua auth (theatre + game) pakai key yang sama: auth_token & auth_user
 export const tokenHelper = {
-  save: (token: string) => localStorage.setItem('ws_quiz_token', token),
-  clear: () => localStorage.removeItem('ws_quiz_token'),
-  userKey: 'ws_quiz_user',
-  saveUser: (user: User) => localStorage.setItem('ws_quiz_user', JSON.stringify(user)),
+  save: (token: string) => localStorage.setItem('auth_token', token),
+  clear: () => localStorage.removeItem('auth_token'),
+  saveUser: (user: User) => localStorage.setItem('auth_user', JSON.stringify(user)),
   getUser: (): User | null => {
     if (typeof window === 'undefined') return null
-    const s = localStorage.getItem('ws_quiz_user')
+    const s = localStorage.getItem('auth_user')
     return s ? JSON.parse(s) : null
   },
-  clearUser: () => localStorage.removeItem('ws_quiz_user'),
+  clearUser: () => localStorage.removeItem('auth_user'),
 }

@@ -11,6 +11,7 @@ const authRoutes      = require('./routes/auth')
 const questionRoutes  = require('./routes/questions')
 const sessionRoutes   = require('./routes/sessions')
 const answerRoutes    = require('./routes/answers')
+const eventsRouter    = require('./routes/events')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
@@ -56,6 +57,7 @@ app.use('/api/auth',      authRoutes)
 app.use('/api/questions', questionRoutes)
 app.use('/api/sessions',  sessionRoutes)
 app.use('/api/answers',   answerRoutes)
+app.use('/api/events', eventsRouter)
 
 // ── Health check ─────────────────────────────────────────────────
 app.get('/health', (_req, res) => {

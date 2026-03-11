@@ -1,6 +1,5 @@
 'use client'
 // lib/authContext.tsx
-// Simpan di: lib/authContext.tsx
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { tokenHelper } from '@/lib/gameApi'
