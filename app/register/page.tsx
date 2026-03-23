@@ -57,25 +57,18 @@ export default function RegisterPage() {
           padding: '60px 48px',
           position: 'relative',
         }}>
-          {/* Top left nav */}
-          <div style={{
-            position: 'absolute', top: 32, left: 40,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
+          {/* Top left — logo */}
+          <div style={{ position: 'absolute', top: 32, left: 40 }}>
             <Link href="/" style={{ textDecoration: 'none' }}>
-              <span style={{
-                fontFamily: 'var(--font-barlow)', fontWeight: 900,
-                fontSize: '0.9rem', letterSpacing: '4px',
-                color: 'var(--ws-cream)',
-              }}>WS</span>
-              <span style={{
-                fontFamily: 'var(--font-barlow)', fontWeight: 900,
-                fontSize: '0.9rem', letterSpacing: '4px',
-                color: 'var(--ws-red)',
-              }}>T</span>
+              <img
+                src="/assets/logo-white.png"
+                alt="Wondershock Theatre"
+                style={{ width: 120, display: 'block' }}
+              />
             </Link>
           </div>
 
+          {/* Top right nav */}
           <div style={{
             position: 'absolute', top: 32, right: 40,
             display: 'flex', alignItems: 'center', gap: 6,
@@ -290,8 +283,7 @@ export default function RegisterPage() {
                 transition={{ delay: 0.2 + i * 0.1, duration: 0.5 }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14,
-                  marginBottom: 20,
-                  padding: '14px 16px',
+                  marginBottom: 20, padding: '14px 16px',
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.06)',
                   borderRadius: 6,

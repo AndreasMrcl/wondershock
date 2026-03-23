@@ -90,24 +90,11 @@ export default function LoginPage() {
 
           {/* Logo */}
           <Link href="/" style={{ textDecoration: 'none', position: 'relative', zIndex: 1 }}>
-            <div>
-              <p style={{
-                fontFamily: 'var(--font-barlow)', fontWeight: 900,
-                fontSize: '1.4rem', letterSpacing: '6px',
-                color: 'var(--ws-cream)', lineHeight: 1,
-              }}>WONDER</p>
-              <p style={{
-                fontFamily: 'var(--font-barlow)', fontWeight: 900,
-                fontSize: '1.4rem', letterSpacing: '6px',
-                color: 'var(--ws-red)', lineHeight: 1, marginTop: -4,
-              }}>SHOCK</p>
-              <p style={{
-                fontFamily: 'var(--font-barlow)', fontWeight: 400,
-                fontSize: '0.5rem', letterSpacing: '6px',
-                color: 'rgba(221,219,216,0.35)',
-                textTransform: 'uppercase', marginTop: 2,
-              }}>THEATRE</p>
-            </div>
+            <img
+              src="/assets/logo-white.png"
+              alt="Wondershock Theatre"
+              style={{ width: 140, display: 'block' }}
+            />
           </Link>
 
           {/* Bottom quote */}

@@ -13,15 +13,15 @@ const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
-const EVENTS_DATA: Record<string, { title: string; color: string }[]> = {
-  '2026-3-15': [{ title: 'AHA Moment #3', color: '#ec2b25' }],
-  '2026-3-20': [{ title: 'Voice Workshop', color: '#f6bc05' }],
-  '2026-3-28': [{ title: 'Open Mic Night', color: '#ec2b25' }],
-  '2026-4-5':  [{ title: 'My Story.Brand', color: '#f6bc05' }],
-  '2026-4-12': [{ title: 'Movement Lab',   color: '#266adf' }],
-  '2026-4-20': [{ title: 'Celebrating Disability', color: '#ec2b25' }],
-  '2026-5-3':  [{ title: 'Voice & Movement', color: '#f6bc05' }],
-  '2026-5-18': [{ title: 'The Unsaid Word', color: '#ec2b25' }],
+const TYPE_COLOR: Record<string, string> = {
+  show: '#ec2b25', workshop: '#f6bc05', special: '#266adf',
+}
+
+interface ApiEvent {
+  id: string
+  title: string
+  date: string
+  type: 'show' | 'workshop' | 'special'
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -40,6 +40,25 @@ export default function CalendarSection() {
   const now = new Date()
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
+  const [eventsData, setEventsData] = useState<Record<string, { title: string; color: string }[]>>({})
+
+  // Fetch events dari API dan konversi ke format kalender
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    fetch(`${apiUrl}/api/events`)
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(data => {
+        const map: Record<string, { title: string; color: string }[]> = {}
+        ;(data.events || [] as ApiEvent[]).forEach((ev: ApiEvent) => {
+          const d = new Date(ev.date)
+          const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+          if (!map[key]) map[key] = []
+          map[key].push({ title: ev.title, color: TYPE_COLOR[ev.type] || '#ec2b25' })
+        })
+        setEventsData(map)
+      })
+      .catch(() => {})
+  }, [])
 
   const cells = getCalendarDays(currentYear, currentMonth)
 
@@ -172,7 +191,7 @@ export default function CalendarSection() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
           {cells.map((day, i) => {
             const key = `${currentYear}-${currentMonth + 1}-${day}`
-            const evs = day ? (EVENTS_DATA[key] || []) : []
+            const evs = day ? (eventsData[key] || []) : []
             const isToday = day === now.getDate() && currentMonth === now.getMonth() && currentYear === now.getFullYear()
             const hasEvent = evs.length > 0
 
@@ -216,7 +235,7 @@ export default function CalendarSection() {
       {/* CTA */}
       <div style={{ marginTop: 32, textAlign: 'center' }}>
         <motion.a
-          href="#"
+          href="/events"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 12,
             border: '1px solid rgba(221,219,216,0.2)', padding: '12px 32px',

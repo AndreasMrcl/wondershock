@@ -160,8 +160,8 @@ export default function Navbar() {
                 pointerEvents: menuOpen ? 'none' : 'auto',
               }}
             >
-              <motion.a
-                href="#whats-on"
+              <Link href="/events" style={{ textDecoration: 'none' }}>
+              <motion.div
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '8px 18px',
@@ -170,12 +170,13 @@ export default function Navbar() {
                   fontFamily: 'var(--font-barlow)',
                   fontSize: '0.7rem', fontWeight: 700,
                   letterSpacing: '0.18em', textTransform: 'uppercase',
-                  textDecoration: 'none',
+                  cursor: 'pointer',
                 }}
                 whileHover={{ background: 'rgba(236,43,37,0.1)' }}
               >
                 What&apos;s On
-              </motion.a>
+              </motion.div>
+              </Link>
 
               {/* ── AUTH AREA ── */}
               <div style={{ position: 'relative' }}>
@@ -411,7 +412,7 @@ export default function Navbar() {
                 </motion.p>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {UPCOMING_EVENTS.map((ev, i) => (
-                    <motion.a key={ev.title} href="#whats-on" onClick={() => setMenuOpen(false)}
+                    <motion.a key={ev.title} href="/events" onClick={() => setMenuOpen(false)}
                       initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.22 + i * 0.07, duration: 0.4 }}
                       onMouseEnter={e => { setHovered(`e${i}`); (e.currentTarget as HTMLElement).style.paddingLeft = '6px' }}
@@ -435,7 +436,7 @@ export default function Navbar() {
                     </motion.a>
                   ))}
                 </div>
-                <motion.a href="#whats-on" onClick={() => setMenuOpen(false)}
+                <motion.a href="/events" onClick={() => setMenuOpen(false)}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.62, duration: 0.3 }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 18, textDecoration: 'none', fontFamily: 'var(--font-barlow)', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ws-gray)', transition: 'color 0.2s' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ws-red)' }}

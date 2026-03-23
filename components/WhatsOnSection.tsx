@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
+import Link from 'next/link'
 
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger)
@@ -182,6 +182,7 @@ export default function WhatsOnSection() {
             )}
 
             {/* CTA card */}
+            <Link href="/events" style={{ textDecoration: 'none' }}>
             <div
               className="show-card-item"
               style={{
@@ -204,6 +205,7 @@ export default function WhatsOnSection() {
                 color: 'var(--ws-red)', fontSize: '1rem',
               }}>→</div>
             </div>
+            </Link>
           </div>
         )}
       </div>

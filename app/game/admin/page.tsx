@@ -3,56 +3,11 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { authApi, questionsApi, answersApi, sessionsApi, tokenHelper } from '@/lib/gameApi'
+import { useRouter } from 'next/navigation'
+import { questionsApi, answersApi, sessionsApi, tokenHelper } from '@/lib/gameApi'
 import type { User, Question, Answer, Session } from '@/lib/gameApi'
 
 type AdminTab = 'questions' | 'answers' | 'sessions'
-
-// ── LOGIN ─────────────────────────────────────────────────────────
-function AdminLogin({ onSuccess }: { onSuccess: (user: User) => void }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const submit = async () => {
-    setError(''); setLoading(true)
-    try {
-      const res = await authApi.adminLogin(email, password)
-      tokenHelper.save(res.token)
-      tokenHelper.saveUser(res.user)
-      onSuccess(res.user)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Login gagal')
-    } finally { setLoading(false) }
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--ws-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
-      <motion.div
-        initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        style={{ width: '100%', maxWidth: 380, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '40px 32px' }}
-      >
-        <p style={{ fontFamily: 'var(--font-barlow)', fontSize: '0.6rem', letterSpacing: '3px', color: 'var(--ws-red)', textTransform: 'uppercase', marginBottom: 8 }}>Admin Panel</p>
-        <h1 style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: '2rem', textTransform: 'uppercase', color: 'var(--ws-cream)', marginBottom: 28 }}>
-          WONDERSHOCK<br /><span style={{ color: 'var(--ws-red)' }}>QUIZ</span>
-        </h1>
-
-        <label style={labelStyle}>Email Admin</label>
-        <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="admin@wondershock.id" style={{ ...inputStyle, marginBottom: 14 }} onFocus={focusIn} onBlur={focusOut} />
-        <label style={labelStyle}>Password</label>
-        <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" style={{ ...inputStyle, marginBottom: 20 }} onFocus={focusIn} onBlur={focusOut} onKeyDown={e => e.key === 'Enter' && submit()} />
-
-        {error && <p style={{ fontSize: '0.78rem', color: 'var(--ws-red)', fontFamily: 'var(--font-dm-sans)', marginBottom: 12 }}>{error}</p>}
-
-        <button onClick={submit} disabled={loading} style={{ ...btnPrimary, width: '100%', opacity: loading ? 0.6 : 1 }}>
-          {loading ? 'Memuat...' : 'Masuk →'}
-        </button>
-      </motion.div>
-    </div>
-  )
-}
 
 // ── QUESTION MODAL ────────────────────────────────────────────────
 function QuestionModal({ question, onSave, onClose }: {
@@ -140,6 +95,7 @@ function QuestionModal({ question, onSave, onClose }: {
 
 // ── MAIN ADMIN PAGE ───────────────────────────────────────────────
 export default function AdminPage() {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [authed, setAuthed] = useState(false)
   const [tab, setTab] = useState<AdminTab>('questions')
@@ -152,7 +108,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     const saved = tokenHelper.getUser()
-    if (saved?.role === 'admin') { setUser(saved); setAuthed(true) }
+    if (saved?.role === 'admin') {
+      setUser(saved)
+      setAuthed(true)
+    } else {
+      router.replace('/login?from=/game/admin')
+    }
   }, [])
 
   useEffect(() => {
@@ -190,7 +151,11 @@ export default function AdminPage() {
     await questionsApi.delete(id); loadQuestions(); toast('Soal diarsipkan')
   }
 
-  if (!authed) return <AdminLogin onSuccess={u => { setUser(u); setAuthed(true) }} />
+  if (!authed) return (
+    <div style={{ minHeight: '100vh', background: '#0a0f10', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p style={{ fontFamily: 'var(--font-barlow)', color: 'var(--ws-gray)', letterSpacing: '3px', fontSize: '0.7rem', textTransform: 'uppercase' }}>Memeriksa akses...</p>
+    </div>
+  )
 
   const typeColor: Record<string, string> = { text: 'var(--ws-blue)', photo: 'var(--ws-gold)', video: '#a855f7', any: 'var(--ws-gray)' }
 
@@ -216,7 +181,7 @@ export default function AdminPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: '0.75rem', color: 'var(--ws-gray)' }}>{user?.name}</span>
-          <button onClick={() => { tokenHelper.clear(); tokenHelper.clearUser(); setAuthed(false) }}
+          <button onClick={() => { tokenHelper.clear(); tokenHelper.clearUser(); router.push('/login') }}
             style={{ ...btnSecondary, fontSize: '0.6rem', padding: '5px 12px' }}>Keluar</button>
         </div>
       </header>

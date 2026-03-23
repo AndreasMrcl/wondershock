@@ -15,6 +15,9 @@ import { useAuth } from '@/lib/authContext'
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger)
 
 // ── Types ────────────────────────────────────────────────────────
+interface Performer { name: string; role: string; photo_url?: string }
+interface TicketType { name: string; price: number; quota: number; description?: string }
+
 interface Event {
   id: string
   title: string
@@ -26,6 +29,14 @@ interface Event {
   description: string | null
   order_num: number
   is_active: boolean
+  venue: string | null
+  venue_address: string | null
+  venue_maps_url: string | null
+  performers: Performer[]
+  terms: string | null
+  ticket_types: TicketType[]
+  capacity: number | null
+  tags: string[]
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -37,9 +48,16 @@ const TYPE_IMG: Record<string, string> = {
   special:  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80',
 }
 
+const EMPTY_PERFORMER = { name: '', role: '', photo_url: '' }
+
 const EMPTY_FORM = {
   title: '', subtitle: '', date: '', type: 'show' as const,
-  image_url: '', price: '', description: '', order_num: 0, is_active: true,
+  image_url: '', price: '', description: '',
+  order_num: 0, is_active: true,
+  venue: '', venue_address: '', venue_maps_url: '',
+  performers: [{ ...EMPTY_PERFORMER }] as { name: string; role: string; photo_url: string }[],
+  terms: '', ticket_types: '[]',
+  capacity: '', tags: '',
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
@@ -115,8 +133,21 @@ export default function EventsPage() {
     setEditing(ev)
     setForm({
       title: ev.title, subtitle: ev.subtitle || '', date: ev.date?.split('T')[0] || '',
-      type: ev.type, image_url: ev.image_url || '', price: ev.price || '',
-      description: ev.description || '', order_num: ev.order_num, is_active: ev.is_active,
+      type: ev.type, image_url: ev.image_url || '',
+      price: ev.price || '', description: ev.description || '',
+      order_num: ev.order_num, is_active: ev.is_active,
+      venue: ev.venue || '', venue_address: ev.venue_address || '',
+      venue_maps_url: ev.venue_maps_url || '',
+      performers: (() => {
+        let raw = ev.performers
+        if (typeof raw === 'string') { try { raw = JSON.parse(raw) } catch { raw = [] } }
+        if (!Array.isArray(raw) || raw.length === 0) return [{ ...EMPTY_PERFORMER }]
+        return raw.map((p: Performer) => ({ name: p.name || '', role: p.role || '', photo_url: p.photo_url || '' }))
+      })(),
+      terms: ev.terms || '',
+      ticket_types: JSON.stringify(ev.ticket_types || [], null, 2),
+      capacity: ev.capacity?.toString() || '',
+      tags: (ev.tags || []).join(', '),
     })
     setFormError(''); setShowForm(true)
   }
@@ -125,9 +156,21 @@ export default function EventsPage() {
     if (!form.date)         return setFormError('Tanggal wajib diisi')
     setSaving(true); setFormError('')
     try {
+      // Parse JSON fields
+      let ticket_types = []
+      try { ticket_types = JSON.parse((form as any).ticket_types || '[]') } catch { ticket_types = [] }
+      const performers = ((form as any).performers || []).filter((p: any) => p.name.trim())
+      const tags = (form as any).tags
+        ? (form as any).tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+        : []
+      const payload = {
+        ...form,
+        performers, ticket_types, tags,
+        capacity: (form as any).capacity ? parseInt((form as any).capacity) : null,
+      }
       const url    = editing ? `${API}/api/events/${editing.id}` : `${API}/api/events`
       const method = editing ? 'PUT' : 'POST'
-      const r      = await fetch(url, { method, headers, body: JSON.stringify(form) })
+      const r      = await fetch(url, { method, headers, body: JSON.stringify(payload) })
       const d      = await r.json()
       if (!r.ok) throw new Error(d.error || 'Gagal')
       await fetchEvents(); setShowForm(false)
@@ -363,6 +406,7 @@ export default function EventsPage() {
                   hovered={hoveredId === ev.id}
                   onHover={id => setHoveredId(id)}
                   isAdmin={isAdmin}
+                  adminOpen={adminOpen}
                   onEdit={() => openEdit(ev)}
                   onToggle={() => toggleActive(ev)}
                   onDelete={() => setDeleteId(ev.id)}
@@ -431,7 +475,7 @@ export default function EventsPage() {
                   </div>
                   <div>
                     <label style={lbl}>URL Gambar</label>
-                    <input style={inp} value={form.image_url} placeholder="https://..."
+                    <input style={inp} value={form.image_url} placeholder="https://i.ibb.co/..."
                       onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} />
                     <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: '0.68rem', color: 'rgba(83,83,83,0.6)', marginTop: 5 }}>
                       Upload foto ke imgbb.com → copy URL direct link
@@ -440,21 +484,141 @@ export default function EventsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div>
                       <label style={lbl}>Harga</label>
-                      <input style={inp} value={form.price} placeholder="Rp 150.000"
-                        onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
+                      <div style={{ position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                          fontFamily: 'var(--font-dm-sans)', fontSize: '0.85rem',
+                          color: 'var(--ws-gray)', pointerEvents: 'none',
+                        }}>Rp</span>
+                        <input style={{ ...inp, paddingLeft: 36 }}
+                          value={(() => {
+                            const raw = (form.price || '').replace(/^Rp\s?/, '').replace(/\./g, '')
+                            return raw ? parseInt(raw).toLocaleString('id-ID') : ''
+                          })()}
+                          placeholder="150.000"
+                          inputMode="numeric"
+                          onChange={e => {
+                            const raw = e.target.value.replace(/\D/g, '')
+                            const formatted = raw ? parseInt(raw).toLocaleString('id-ID') : ''
+                            setForm(f => ({ ...f, price: formatted ? `Rp ${formatted}` : '' }))
+                          }} />
+                      </div>
                     </div>
+                    <div>
+                      <label style={lbl}>Kapasitas</label>
+                      <input style={inp} type="number" value={(form as any).capacity} placeholder="200"
+                        onChange={e => setForm(f => ({ ...f, capacity: e.target.value } as any))} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div>
                       <label style={lbl}>Urutan tampil</label>
                       <input style={inp} type="number" value={form.order_num}
                         onChange={e => setForm(f => ({ ...f, order_num: parseInt(e.target.value) || 0 }))} />
                     </div>
+                    <div>
+                      <label style={lbl}>Tags (pisah koma)</label>
+                      <input style={inp} value={(form as any).tags} placeholder="teater, drama, jakarta"
+                        onChange={e => setForm(f => ({ ...f, tags: e.target.value } as any))} />
+                    </div>
                   </div>
                   <div>
                     <label style={lbl}>Deskripsi</label>
                     <textarea style={{ ...inp, minHeight: 90, resize: 'vertical' }} value={form.description}
-                      placeholder="Deskripsi singkat event..."
+                      placeholder="Deskripsi event..."
                       onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                   </div>
+
+                  {/* Venue */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16 }}>
+                    <p style={{ ...lbl, color: 'rgba(246,188,5,0.6)', marginBottom: 12 }}>Lokasi & Venue</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <input style={inp} value={(form as any).venue} placeholder="Nama venue (cth: Taman Budaya Yogyakarta)"
+                        onChange={e => setForm(f => ({ ...f, venue: e.target.value } as any))} />
+                      <input style={inp} value={(form as any).venue_address} placeholder="Alamat lengkap"
+                        onChange={e => setForm(f => ({ ...f, venue_address: e.target.value } as any))} />
+                      <input style={inp} value={(form as any).venue_maps_url} placeholder="URL Google Maps"
+                        onChange={e => setForm(f => ({ ...f, venue_maps_url: e.target.value } as any))} />
+                    </div>
+                  </div>
+
+                  {/* Performers */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <p style={{ ...lbl, color: 'rgba(246,188,5,0.6)', margin: 0 }}>Lineup & Performer</p>
+                      <button type="button" onClick={() => setForm(f => ({
+                        ...f, performers: [...((f as any).performers || []), { ...EMPTY_PERFORMER }]
+                      } as any))} style={{
+                        background: 'none', border: '1px solid rgba(246,188,5,0.3)',
+                        borderRadius: 3, padding: '4px 12px', cursor: 'pointer',
+                        fontFamily: 'var(--font-barlow)', fontWeight: 700,
+                        fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: 'rgba(246,188,5,0.7)',
+                      }}>+ Tambah</button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {(Array.isArray((form as any).performers) ? (form as any).performers : []).map((p: any, i: number) => (
+                        <div key={i} style={{
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          borderRadius: 4, padding: '12px 14px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 700, fontSize: '0.6rem', letterSpacing: '0.1em', color: 'var(--ws-gray)', textTransform: 'uppercase' }}>
+                              Performer {i + 1}
+                            </span>
+                            {(Array.isArray((form as any).performers) ? (form as any).performers : []).length > 1 && (
+                              <button type="button" onClick={() => setForm(f => ({
+                                ...f,
+                                performers: ((f as any).performers || []).filter((_: any, j: number) => j !== i)
+                              } as any))} style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'rgba(236,43,37,0.6)', fontSize: '0.75rem', padding: '2px 6px',
+                              }}>✕ Hapus</button>
+                            )}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                            <div>
+                              <label style={{ ...lbl, marginBottom: 4 }}>Nama *</label>
+                              <input style={{ ...inp }} value={p.name} placeholder="Nama performer"
+                                onChange={e => setForm(f => {
+                                  const arr = [...((f as any).performers || [])]
+                                  arr[i] = { ...arr[i], name: e.target.value }
+                                  return { ...f, performers: arr } as any
+                                })} />
+                            </div>
+                            <div>
+                              <label style={{ ...lbl, marginBottom: 4 }}>Peran / Role *</label>
+                              <input style={{ ...inp }} value={p.role} placeholder="Sutradara, Aktor, dll"
+                                onChange={e => setForm(f => {
+                                  const arr = [...((f as any).performers || [])]
+                                  arr[i] = { ...arr[i], role: e.target.value }
+                                  return { ...f, performers: arr } as any
+                                })} />
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ ...lbl, marginBottom: 4 }}>URL Foto (opsional)</label>
+                            <input style={{ ...inp }} value={p.photo_url} placeholder="https://i.ibb.co/..."
+                              onChange={e => setForm(f => {
+                                const arr = [...((f as any).performers || [])]
+                                arr[i] = { ...arr[i], photo_url: e.target.value }
+                                return { ...f, performers: arr } as any
+                              })} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Terms */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16 }}>
+                    <p style={{ ...lbl, color: 'rgba(246,188,5,0.6)', marginBottom: 8 }}>Syarat & Ketentuan</p>
+                    <textarea style={{ ...inp, minHeight: 80, resize: 'vertical' }}
+                      value={(form as any).terms} placeholder="Tulis syarat & ketentuan event..."
+                      onChange={e => setForm(f => ({ ...f, terms: e.target.value } as any))} />
+                  </div>
+
                   <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                     <input type="checkbox" checked={form.is_active}
                       onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))}
@@ -546,17 +710,18 @@ export default function EventsPage() {
 
 // ── Event Card ───────────────────────────────────────────────────
 function EventCard({
-  event, index, hovered, onHover, isAdmin, onEdit, onToggle, onDelete
+  event, index, hovered, onHover, isAdmin, adminOpen, onEdit, onToggle, onDelete
 }: {
   event: Event; index: number; hovered: boolean
   onHover: (id: string | null) => void
   isAdmin: boolean
+  adminOpen: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
 }) {
   const color = TYPE_COLOR[event.type]
   const img   = event.image_url || TYPE_IMG[event.type]
 
-  return (
+  const cardContent = (
     <motion.div
       className="ev-card"
       onMouseEnter={() => onHover(event.id)}
@@ -644,7 +809,9 @@ function EventCard({
             <span style={{
               fontFamily: 'var(--font-barlow)', fontWeight: 700,
               fontSize: '0.85rem', color: color, letterSpacing: '0.06em',
-            }}>{event.price}</span>
+            }}>
+              {event.price.startsWith('Rp') ? event.price : `Rp ${event.price}`}
+            </span>
           ) : <span />}
 
           <motion.div
@@ -661,11 +828,9 @@ function EventCard({
           </motion.div>
         </div>
 
-        {/* Admin quick actions */}
-        {isAdmin && (
-          <motion.div
-            animate={{ opacity: hovered ? 1 : 0, y: hovered ? 0 : 8 }}
-            transition={{ duration: 0.2 }}
+        {/* Admin quick actions — hanya saat panel kelola aktif */}
+        {isAdmin && adminOpen && (
+          <div
             style={{ display: 'flex', gap: 6, marginTop: 14 }}
             onClick={e => e.stopPropagation()}
           >
@@ -674,16 +839,18 @@ function EventCard({
               { label: 'Edit', action: onEdit },
               { label: 'Hapus', action: onDelete },
             ].map(b => (
-              <button key={b.label} onClick={b.action} style={{
-                background: 'rgba(7,13,14,0.7)', backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 2, padding: '5px 12px', cursor: 'pointer',
-                fontFamily: 'var(--font-barlow)', fontWeight: 700,
-                fontSize: '0.58rem', letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: b.label === 'Hapus' ? 'rgba(236,43,37,0.8)' : 'var(--ws-sand)',
-              }}>{b.label}</button>
+              <button key={b.label}
+                onClick={e => { e.preventDefault(); e.stopPropagation(); b.action() }}
+                style={{
+                  background: 'rgba(7,13,14,0.7)', backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 2, padding: '5px 12px', cursor: 'pointer',
+                  fontFamily: 'var(--font-barlow)', fontWeight: 700,
+                  fontSize: '0.58rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: b.label === 'Hapus' ? 'rgba(236,43,37,0.8)' : 'var(--ws-sand)',
+                }}>{b.label}</button>
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
 
@@ -694,5 +861,16 @@ function EventCard({
         transition: 'transform 0.35s ease',
       }} />
     </motion.div>
+  )
+
+  // Kalau admin panel aktif, jangan wrap dengan Link supaya tombol bisa diklik
+  if (isAdmin && adminOpen) {
+    return <div style={{ display: 'block' }}>{cardContent}</div>
+  }
+
+  return (
+    <Link href={`/events/${event.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+      {cardContent}
+    </Link>
   )
 }

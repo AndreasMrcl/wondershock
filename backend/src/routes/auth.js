@@ -48,7 +48,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email dan password wajib diisi' })
 
     const { rows } = await db.query(
-      "SELECT * FROM users WHERE email = $1 AND role = 'peserta'",
+      'SELECT * FROM users WHERE email = $1',
       [email.toLowerCase().trim()]
     )
     if (rows.length === 0)
