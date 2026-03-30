@@ -9,7 +9,12 @@ export function useGameTimer(initialSeconds: number) {
 
   const start = useCallback(() => setRunning(true), [])
   const pause = useCallback(() => setRunning(false), [])
-  const reset = useCallback((s: number) => { setRunning(false); setTimeLeft(s) }, [])
+  const reset = useCallback((s: number) => {
+    setRunning(false)
+    setTimeLeft(s)
+  }, [])
+
+  // Penalise: kurangi detik dari timer (untuk jawaban salah & hint)
   const penalise = useCallback((seconds: number) => {
     setTimeLeft(t => Math.max(0, t - seconds))
   }, [])
@@ -28,10 +33,25 @@ export function useGameTimer(initialSeconds: number) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [running])
 
-  const mm = String(Math.floor(timeLeft / 60)).padStart(2, '0')
+  const hh = Math.floor(timeLeft / 3600)
+  const mm = String(Math.floor((timeLeft % 3600) / 60)).padStart(2, '0')
   const ss = String(timeLeft % 60).padStart(2, '0')
-  const pct = initialSeconds > 0 ? timeLeft / initialSeconds : 0
-  const urgent = timeLeft <= 30 && timeLeft > 0
+  const display = hh > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`
 
-  return { timeLeft, display: `${mm}:${ss}`, pct, urgent, expired: timeLeft === 0, start, pause, reset, penalise }
+  const pct = initialSeconds > 0 ? timeLeft / initialSeconds : 0
+  const urgent = timeLeft <= 300 && timeLeft > 0   // ≤5 menit = urgent
+  const warning = timeLeft <= 600 && timeLeft > 300 // ≤10 menit = warning
+
+  return {
+    timeLeft,
+    display,
+    pct,
+    urgent,
+    warning,
+    expired: timeLeft === 0,
+    start,
+    pause,
+    reset,
+    penalise,
+  }
 }

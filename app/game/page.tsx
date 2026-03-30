@@ -1,637 +1,1052 @@
 'use client'
 // app/game/page.tsx
+// Home page game City Hunt — cinematic, seperti poster film.
+// Konten: hero chapter aktif + preview rewards.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { questionsApi, sessionsApi, answersApi, tokenHelper } from '@/lib/gameApi'
-import type { Question, Session } from '@/lib/gameApi'
 import { useAuth } from '@/lib/authContext'
-import { useGameTimer } from '@/hooks/useGameTimer'
-import GameTimer from '@/components/game/GameTimer'
-import AnswerInput from '@/components/game/AnswerInput'
+import {
+  CHAPTERS,
+  getOngoingChapters,
+  formatTimer,
+  formatHintPenalty,
+  type Chapter,
+} from '@/lib/chapters'
 
-type Phase = 'loading' | 'briefing' | 'quiz' | 'done'
+// Dummy rewards preview — nanti dari API
+const REWARDS_PREVIEW = [
+  {
+    icon: '🎭',
+    title: 'Tiket Gratis',
+    desc: 'AHA Moment #3',
+    color: '#ec2b25',
+    value: '2 Tiket',
+  },
+  {
+    icon: '🎟',
+    title: 'Voucher Workshop',
+    desc: 'Diskon 50%',
+    color: '#f6bc05',
+    value: '50% OFF',
+  },
+  {
+    icon: '👕',
+    title: 'Merchandise',
+    desc: 'Kaos Eksklusif',
+    color: '#818cf8',
+    value: 'Limited',
+  },
+]
 
-// ── BRIEFING ──────────────────────────────────────────────────────
-function BriefingScreen({ userName, questionCount, onStart }: {
-  userName: string; questionCount: number; onStart: () => void
-}) {
-  const rules = [
-    { icon: '⏱', label: 'Timer per soal', desc: 'Mulai saat soal tampil' },
-    { icon: '✏', label: 'Teks / Foto / Video', desc: 'Sesuai format soal' },
-    { icon: '❌', label: 'Salah = −30 detik', desc: 'Coba ulang sampai benar' },
-  ]
+// ── Shared Game Navbar ────────────────────────────────────────────
+function GameNav() {
+  const { user, logout } = useAuth()
+  const router = useRouter()
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}
-      style={{ maxWidth: 600, width: '100%', textAlign: 'center' }}
+    <nav
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        borderBottom: '1px solid rgba(221,219,216,0.06)',
+        background: 'rgba(7,13,14,0.7)',
+        backdropFilter: 'blur(20px)',
+      }}
     >
-      {/* Icon */}
-      <motion.div
-        initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.15, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      <div
         style={{
-          width: 80, height: 80, borderRadius: '50%',
-          border: '1.5px solid rgba(236,43,37,0.5)',
-          boxShadow: '0 0 32px rgba(236,43,37,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 32px', fontSize: '2rem',
-          background: 'rgba(236,43,37,0.06)',
-        }}
-      >🎭</motion.div>
-
-      {/* Eyebrow */}
-      <motion.p
-        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-        style={{
-          fontFamily: 'var(--font-dm-sans)', fontSize: '0.6rem',
-          letterSpacing: '0.35em', textTransform: 'uppercase',
-          color: 'var(--ws-red)', marginBottom: 14,
-        }}
-      >City Hunt Quiz</motion.p>
-
-      {/* Heading */}
-      <motion.h2
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        style={{
-          fontFamily: 'var(--font-barlow)', fontWeight: 900,
-          fontSize: 'clamp(2.4rem, 5.5vw, 4rem)',
-          textTransform: 'uppercase', lineHeight: 0.92,
-          color: 'var(--ws-cream)', marginBottom: 24,
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
+          alignItems: 'center',
+          padding: '0 48px',
+          height: 80,
         }}
       >
-        SIAP,<br />
-        <span style={{ color: 'var(--ws-red)' }}>{userName.split(' ')[0].toUpperCase()}?</span>
-      </motion.h2>
-
-      {/* Subtitle */}
-      <motion.p
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.38 }}
-        style={{
-          fontFamily: 'var(--font-dm-sans)', fontSize: '0.88rem',
-          color: 'var(--ws-gray)', lineHeight: 1.8, marginBottom: 40,
-        }}
-      >
-        <span style={{ color: 'var(--ws-sand)', fontWeight: 600 }}>{questionCount} soal</span> menunggumu di luar sana.
-        Jawab dengan teks, foto, atau video.<br />
-        Kamu harus menjawab benar sebelum lanjut ke soal berikutnya.
-      </motion.p>
-
-      {/* Rules */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 44 }}
-      >
-        {rules.map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.48 + i * 0.07 }}
+        {/* LEFT */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 32,
+            paddingRight: 36,
+          }}
+        >
+          <Link
+            href="/game/chapters"
             style={{
-              background: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: 10, padding: '18px 12px', textAlign: 'center',
+              fontFamily: 'var(--font-barlow)',
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--ws-sand)',
+              textDecoration: 'none',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = 'var(--ws-cream)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = 'var(--ws-sand)')
+            }
+          >
+            Chapters
+          </Link>
+        </div>
+
+        {/* CENTER */}
+        <Link href="/game" style={{ flexShrink: 0, display: 'block' }}>
+          <div style={{ width: 180, height: 72 }}>
+            <img
+              src="/assets/logo-white.png"
+              alt="Wondershock Theatre"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </div>
+        </Link>
+
+        {/* RIGHT */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: 36,
+            gap: 20,
+          }}
+        >
+          <Link
+            href="/game/rewards"
+            style={{
+              fontFamily: 'var(--font-barlow)',
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              color: 'var(--ws-gold)',
+              transition: 'opacity 0.2s',
+            }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.opacity = '0.75')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.opacity = '1')
+            }
+          >
+            <span>🏆</span> Rewards
+          </Link>
+
+          <div style={{ flex: 1 }} />
+
+          {user && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  background: 'var(--ws-red)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: 'var(--font-barlow)',
+                  fontWeight: 900,
+                  fontSize: '0.7rem',
+                  color: 'white',
+                  flexShrink: 0,
+                  border: '1.5px solid rgba(236,43,37,0.4)',
+                }}
+              >
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <span
+                style={{
+                  fontFamily: 'var(--font-dm-sans)',
+                  fontSize: '0.78rem',
+                  color: 'rgba(221,219,216,0.55)',
+                }}
+              >
+                {user.name.split(' ')[0]}
+              </span>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              logout()
+              router.push('/')
+            }}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 4,
+              padding: '6px 14px',
+              color: 'rgba(221,219,216,0.4)',
+              fontFamily: 'var(--font-barlow)',
+              fontWeight: 700,
+              fontSize: '0.6rem',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => {
+              ;(e.currentTarget as HTMLElement).style.borderColor =
+                'rgba(236,43,37,0.5)'
+              ;(e.currentTarget as HTMLElement).style.color = 'var(--ws-red)'
+            }}
+            onMouseLeave={(e) => {
+              ;(e.currentTarget as HTMLElement).style.borderColor =
+                'rgba(255,255,255,0.08)'
+              ;(e.currentTarget as HTMLElement).style.color =
+                'rgba(221,219,216,0.4)'
             }}
           >
-            <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{item.icon}</div>
-            <p style={{
-              fontFamily: 'var(--font-barlow)', fontWeight: 700,
-              fontSize: '0.68rem', letterSpacing: '1.5px',
-              color: 'var(--ws-cream)', textTransform: 'uppercase', marginBottom: 5,
-            }}>{item.label}</p>
-            <p style={{
-              fontFamily: 'var(--font-dm-sans)', fontSize: '0.62rem',
-              color: 'var(--ws-gray)', lineHeight: 1.5,
-            }}>{item.desc}</p>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* CTA */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
-        <motion.button
-          onClick={onStart}
-          whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(236,43,37,0.35)' }}
-          whileTap={{ scale: 0.97 }}
-          style={{
-            padding: '16px 56px',
-            background: 'var(--ws-red)', border: 'none', borderRadius: 5,
-            color: 'white', fontFamily: 'var(--font-barlow)',
-            fontWeight: 700, fontSize: '0.9rem', letterSpacing: '3px',
-            textTransform: 'uppercase', cursor: 'pointer',
-            transition: 'box-shadow 0.3s',
-          }}
-        >MULAI HUNT →</motion.button>
-      </motion.div>
-    </motion.div>
-  )
-}
-
-// ── DONE ──────────────────────────────────────────────────────────
-function DoneScreen({ userName, total }: { userName: string; total: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      style={{ textAlign: 'center', maxWidth: 520, width: '100%' }}
-    >
-      {/* Trophy */}
-      <motion.div
-        animate={{ rotate: [0, -10, 10, -5, 5, 0], scale: [1, 1.1, 1] }}
-        transition={{ delay: 0.3, duration: 1 }}
-        style={{ fontSize: '4rem', marginBottom: 28, display: 'block' }}
-      >🏆</motion.div>
-
-      {/* Confetti dots */}
-      <motion.div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-        {[...Array(12)].map((_, i) => (
-          <motion.div key={i}
-            initial={{ y: '110%', x: `${8 + i * 7.5}%`, opacity: 1 }}
-            animate={{ y: '-20%', opacity: [1, 1, 0] }}
-            transition={{ delay: 0.2 + i * 0.06, duration: 1.6, ease: 'easeOut' }}
-            style={{
-              position: 'absolute', bottom: 0,
-              width: i % 3 === 0 ? 8 : 5, height: i % 3 === 0 ? 8 : 5,
-              borderRadius: i % 2 === 0 ? '50%' : 2,
-              background: i % 3 === 0 ? 'var(--ws-red)' : i % 3 === 1 ? 'var(--ws-gold)' : 'var(--ws-sand)',
-            }}
-          />
-        ))}
-      </motion.div>
-
-      <motion.p
-        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        style={{
-          fontFamily: 'var(--font-dm-sans)', fontSize: '0.6rem',
-          letterSpacing: '0.35em', textTransform: 'uppercase',
-          color: 'var(--ws-red)', marginBottom: 14,
-        }}
-      >Hunt Selesai!</motion.p>
-
-      <motion.h2
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
-        style={{
-          fontFamily: 'var(--font-barlow)', fontWeight: 900,
-          fontSize: 'clamp(2.6rem, 6vw, 4.2rem)',
-          textTransform: 'uppercase', lineHeight: 0.92,
-          color: 'var(--ws-cream)', marginBottom: 20,
-        }}
-      >
-        LUAR BIASA,<br />
-        <span style={{ color: 'var(--ws-red)' }}>{userName.split(' ')[0].toUpperCase()}!</span>
-      </motion.h2>
-
-      <motion.p
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.48 }}
-        style={{
-          fontFamily: 'var(--font-dm-sans)', fontSize: '0.88rem',
-          color: 'var(--ws-gray)', lineHeight: 1.8, marginBottom: 16,
-        }}
-      >
-        Kamu telah menyelesaikan semua{' '}
-        <span style={{ color: 'var(--ws-sand)', fontWeight: 600 }}>{total} soal</span>.
-      </motion.p>
-
-      <motion.p
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.52 }}
-        style={{
-          fontFamily: 'var(--font-dm-sans)', fontSize: '0.82rem',
-          color: 'rgba(221,219,216,0.4)', lineHeight: 1.7, marginBottom: 44,
-        }}
-      >
-        Terima kasih sudah ikut City Hunt<br />bersama Wondershock Theatre!
-      </motion.p>
-
-      <motion.div
-        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-        style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}
-      >
-        <Link href="/" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10,
-          padding: '13px 28px',
-          border: '1px solid rgba(255,255,255,0.12)',
-          color: 'var(--ws-cream)', borderRadius: 4,
-          fontFamily: 'var(--font-barlow)', fontWeight: 700,
-          fontSize: '0.72rem', letterSpacing: '2px',
-          textTransform: 'uppercase', textDecoration: 'none',
-          transition: 'border-color 0.2s, color 0.2s',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ws-red)'; (e.currentTarget as HTMLElement).style.color = 'var(--ws-red)' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.color = 'var(--ws-cream)' }}
-        >← Beranda</Link>
-
-        <Link href="/events" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10,
-          padding: '13px 28px',
-          background: 'var(--ws-red)', border: '1px solid var(--ws-red)',
-          color: 'white', borderRadius: 4,
-          fontFamily: 'var(--font-barlow)', fontWeight: 700,
-          fontSize: '0.72rem', letterSpacing: '2px',
-          textTransform: 'uppercase', textDecoration: 'none',
-        }}>Lihat Acara →</Link>
-      </motion.div>
-    </motion.div>
-  )
-}
-
-// ── QUIZ ──────────────────────────────────────────────────────────
-function QuizScreen({ questions, session, onDone }: {
-  questions: Question[]; session: Session; onDone: () => void
-}) {
-  const [qIndex, setQIndex] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [showHint, setShowHint] = useState(false)
-  const [lastResult, setLastResult] = useState<{ passed: boolean; hint?: string } | null>(null)
-  const [passedCorrect, setPassedCorrect] = useState(false)
-  const question = questions[qIndex]
-  const timer = useGameTimer(question.timer_seconds)
-
-  useEffect(() => {
-    timer.reset(question.timer_seconds)
-    setLastResult(null); setShowHint(false); setPassedCorrect(false)
-    const t = setTimeout(() => timer.start(), 300)
-    return () => clearTimeout(t)
-  }, [qIndex]) // eslint-disable-line
-
-  useEffect(() => {
-    if (timer.expired && !passedCorrect) setTimeout(advanceQuestion, 1200)
-  }, [timer.expired]) // eslint-disable-line
-
-  const advanceQuestion = () => {
-    if (qIndex + 1 >= questions.length) { sessionsApi.finish(session.id).catch(() => {}); onDone() }
-    else setQIndex(i => i + 1)
-  }
-
-  const handleSubmit = useCallback(async (type: 'text' | 'photo' | 'video', value: string | File) => {
-    setLoading(true)
-    try {
-      const result = type === 'text'
-        ? await answersApi.submitText(session.id, question.id, value as string)
-        : await answersApi.submitFile(session.id, question.id, type, value as File)
-      setLastResult({ passed: result.passed, hint: result.hint })
-      if (result.passed) { setPassedCorrect(true); timer.pause(); setTimeout(advanceQuestion, 1400) }
-      else if (result.penalty_seconds) timer.penalise(result.penalty_seconds)
-    } catch (e: unknown) {
-      setLastResult({ passed: false, hint: e instanceof Error ? e.message : 'Gagal terhubung ke server' })
-    } finally { setLoading(false) }
-  }, [question, session, timer, qIndex, questions.length]) // eslint-disable-line
-
-  const answerTypeLabel = {
-    any: 'Teks / Foto / Video',
-    text: 'Tulisan',
-    photo: 'Foto',
-    video: 'Video',
-  }[question.answer_type] ?? 'Teks / Foto / Video'
-
-  return (
-    <div style={{ width: '100%', maxWidth: 700, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-      {/* Top bar: soal progress + timer */}
-      <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{
-            fontFamily: 'var(--font-barlow)', fontSize: '0.62rem',
-            letterSpacing: '2px', color: 'var(--ws-gray)',
-            textTransform: 'uppercase',
-          }}>
-            Soal
-          </span>
-          <span style={{
-            fontFamily: 'var(--font-barlow)', fontWeight: 900,
-            fontSize: '1rem', color: 'var(--ws-cream)',
-          }}>{qIndex + 1}</span>
-          <span style={{
-            fontFamily: 'var(--font-barlow)', fontSize: '0.62rem',
-            color: 'rgba(221,219,216,0.25)',
-          }}>/ {questions.length}</span>
+            Keluar
+          </button>
         </div>
-        <GameTimer display={timer.display} pct={timer.pct} urgent={timer.urgent} expired={timer.expired} />
       </div>
+    </nav>
+  )
+}
 
-      {/* Progress bar */}
-      <div style={{
-        width: '100%', height: 2,
-        background: 'rgba(255,255,255,0.05)',
-        borderRadius: 2, marginBottom: 40, overflow: 'hidden',
-      }}>
-        <motion.div
-          animate={{ width: `${((qIndex + 1) / questions.length) * 100}%` }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          style={{ height: '100%', background: 'var(--ws-red)', borderRadius: 2 }}
+// ── Hero — Chapter Aktif ──────────────────────────────────────────
+function HeroChapter({
+  chapter,
+  userName,
+}: {
+  chapter: Chapter
+  userName: string
+}) {
+  const [imgLoaded, setImgLoaded] = useState(false)
+
+  return (
+    <section
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'flex-end',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Full bleed background ── */}
+      <motion.img
+        src={chapter.bg_image}
+        alt={chapter.title}
+        onLoad={() => setImgLoaded(true)}
+        initial={{ opacity: 0, scale: 1.08 }}
+        animate={{ opacity: imgLoaded ? 1 : 0, scale: imgLoaded ? 1 : 1.08 }}
+        transition={{ duration: 1.8, ease: 'easeOut' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center 30%',
+          filter: 'grayscale(20%) contrast(1.1) brightness(0.65)',
+        }}
+      />
+
+      {/* ── Cinematic overlays ── */}
+      {/* Top letterbox */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '18%',
+          background:
+            'linear-gradient(to bottom, rgba(7,13,14,1) 0%, rgba(7,13,14,0) 100%)',
+          zIndex: 1,
+        }}
+      />
+      {/* Bottom fade to dark */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '65%',
+          background:
+            'linear-gradient(to top, rgba(7,13,14,1) 0%, rgba(7,13,14,0.85) 40%, rgba(7,13,14,0) 100%)',
+          zIndex: 1,
+        }}
+      />
+      {/* Left vignette */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(to right, rgba(7,13,14,0.7) 0%, transparent 55%)',
+          zIndex: 1,
+        }}
+      />
+      {/* Color tint dari chapter */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `radial-gradient(ellipse 70% 60% at 20% 80%, ${chapter.color}20 0%, transparent 60%)`,
+          zIndex: 1,
+        }}
+      />
+
+      {/* ── Film grain overlay ── */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 2,
+          opacity: 0.04,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* ── Vertical chapter number — kanan tengah ── */}
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 1, duration: 0.8 }}
+        style={{
+          position: 'absolute',
+          right: 'max(5%, 48px)',
+          top: '50%',
+          transform: 'translateY(-50%) rotate(90deg)',
+          zIndex: 3,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 1,
+            background: `rgba(255,255,255,0.2)`,
+          }}
         />
-      </div>
-
-      {/* Question card */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={question.id}
-          initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}
-          transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-          style={{ width: '100%', textAlign: 'center', marginBottom: 40 }}
+        <span
+          style={{
+            fontFamily: 'var(--font-barlow)',
+            fontWeight: 900,
+            fontSize: '0.6rem',
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.25)',
+            whiteSpace: 'nowrap',
+          }}
         >
-          {/* Location badge */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
+          Chapter {String(chapter.id).padStart(2, '0')}
+        </span>
+        <div
+          style={{
+            width: 40,
+            height: 1,
+            background: `rgba(255,255,255,0.2)`,
+          }}
+        />
+      </motion.div>
+
+      {/* ── Main content — bottom left ── */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 3,
+          padding: '0 max(5%, 48px) 72px',
+          maxWidth: 720,
+        }}
+      >
+        {/* LIVE badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
             marginBottom: 24,
-            padding: '6px 14px',
-            background: 'rgba(246,188,5,0.08)',
-            border: '1px solid rgba(246,188,5,0.2)',
-            borderRadius: 20,
-          }}>
-            <span style={{ fontSize: '0.75rem' }}>📍</span>
-            <span style={{
-              fontFamily: 'var(--font-barlow)', fontWeight: 700,
-              fontSize: '0.62rem', letterSpacing: '2px',
-              textTransform: 'uppercase', color: 'var(--ws-gold)',
-            }}>{question.location_name}</span>
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(74,222,128,0.12)',
+              border: '1px solid rgba(74,222,128,0.35)',
+              borderRadius: 20,
+              padding: '5px 14px',
+            }}
+          >
+            <motion.span
+              animate={{ opacity: [1, 0.2, 1] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              style={{
+                display: 'block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#4ade80',
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'var(--font-barlow)',
+                fontWeight: 700,
+                fontSize: '0.62rem',
+                letterSpacing: '2.5px',
+                textTransform: 'uppercase',
+                color: '#4ade80',
+              }}
+            >
+              Berlangsung Sekarang
+            </span>
           </div>
 
-          {/* Question text */}
-          <h2 style={{
-            fontFamily: 'var(--font-barlow)', fontWeight: 900,
-            fontSize: 'clamp(1.7rem, 4.5vw, 3rem)',
-            textTransform: 'uppercase', lineHeight: 1.05,
-            color: passedCorrect ? '#4ade80' : timer.urgent ? 'var(--ws-red)' : 'var(--ws-cream)',
-            marginBottom: 14, transition: 'color 0.4s',
-          }}>
-            {passedCorrect ? '✓ BENAR!' : question.question_text}
-          </h2>
-
-          {/* Format label */}
-          {!passedCorrect && (
-            <p style={{
-              fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem',
-              color: 'rgba(221,219,216,0.4)',
-            }}>
-              Format jawaban:{' '}
-              <span style={{ color: 'var(--ws-sand)' }}>{answerTypeLabel}</span>
-            </p>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Answer input + hint */}
-      <AnimatePresence>
-        {!passedCorrect && (
-          <motion.div
-            key="answer"
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.3 }}
-            style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+          {/* Location */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 12px',
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 20,
+              backdropFilter: 'blur(8px)',
+            }}
           >
-            <AnswerInput question={question} onSubmit={handleSubmit} loading={loading} lastResult={lastResult} />
+            <span style={{ fontSize: '0.7rem' }}>📍</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-dm-sans)',
+                fontSize: '0.72rem',
+                color: 'var(--ws-sand)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {chapter.location}, {chapter.city}
+            </span>
+          </div>
+        </motion.div>
 
-            {/* Hint */}
-            {question.hint && (
-              <div style={{ marginTop: 20, width: '100%', maxWidth: 560 }}>
-                <button
-                  onClick={() => setShowHint(s => !s)}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid rgba(246,188,5,0.25)',
-                    borderRadius: 20, padding: '7px 20px',
-                    color: 'rgba(246,188,5,0.6)',
-                    fontFamily: 'var(--font-barlow)', fontWeight: 700,
-                    fontSize: '0.62rem', letterSpacing: '1.5px',
-                    textTransform: 'uppercase', cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--ws-gold)'; (e.currentTarget as HTMLElement).style.color = 'var(--ws-gold)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(246,188,5,0.25)'; (e.currentTarget as HTMLElement).style.color = 'rgba(246,188,5,0.6)' }}
-                >
-                  💡 {showHint ? 'Sembunyikan' : 'Tampilkan'} Hint
-                </button>
+        {/* Title — besar seperti judul film */}
+        <div style={{ overflow: 'hidden', marginBottom: 6 }}>
+          <motion.h1
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.55, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              fontFamily: 'var(--font-barlow)',
+              fontWeight: 900,
+              fontSize: 'clamp(3.5rem, 10vw, 8rem)',
+              textTransform: 'uppercase',
+              lineHeight: 0.88,
+              color: 'var(--ws-cream)',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {chapter.title}
+          </motion.h1>
+        </div>
 
-                <AnimatePresence>
-                  {showHint && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      style={{ marginTop: 10, overflow: 'hidden' }}
-                    >
-                      <div style={{
-                        padding: '14px 18px',
-                        background: 'rgba(246,188,5,0.06)',
-                        borderLeft: '3px solid rgba(246,188,5,0.5)',
-                        borderRadius: '0 6px 6px 0',
-                      }}>
-                        <p style={{
-                          fontFamily: 'var(--font-dm-sans)', fontSize: '0.83rem',
-                          color: 'rgba(255,255,255,0.6)', lineHeight: 1.7,
-                        }}>{question.hint}</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+        {/* Subtitle */}
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85, duration: 0.6 }}
+          style={{
+            fontFamily: 'var(--font-dm-sans)',
+            fontSize: 'clamp(0.85rem, 1.5vw, 1rem)',
+            color: 'rgba(221,219,216,0.55)',
+            lineHeight: 1.7,
+            marginBottom: 36,
+            maxWidth: 480,
+          }}
+        >
+          {chapter.description}
+        </motion.p>
+
+        {/* Meta info row */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1, duration: 0.6 }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 24,
+            marginBottom: 40,
+            flexWrap: 'wrap',
+          }}
+        >
+          {[
+            { icon: '📋', label: `${chapter.question_count} soal` },
+            { icon: '⏱', label: formatTimer(chapter.timer_seconds) },
+            {
+              icon: '💡',
+              label: `Hint ${formatHintPenalty(chapter.hint_penalty_seconds)}`,
+            },
+            { icon: '👥', label: `${chapter.participants} peserta` },
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
+                {item.icon}
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--font-barlow)',
+                  fontWeight: 700,
+                  fontSize: '0.72rem',
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  color: 'rgba(221,219,216,0.5)',
+                }}
+              >
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* CTA buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}
+        >
+          {/* Primary CTA */}
+          <Link href={`/game/${chapter.slug}`} style={{ textDecoration: 'none' }}>
+            <motion.div
+              whileHover={{
+                scale: 1.03,
+                boxShadow: `0 12px 48px ${chapter.color}50`,
+              }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '15px 36px',
+                background: chapter.color,
+                borderRadius: 4,
+                fontFamily: 'var(--font-barlow)',
+                fontWeight: 900,
+                fontSize: '0.88rem',
+                letterSpacing: '3px',
+                textTransform: 'uppercase',
+                color: 'white',
+                cursor: 'pointer',
+                transition: 'box-shadow 0.3s',
+              }}
+            >
+              <span>Mulai Hunt</span>
+              <motion.span
+                animate={{ x: [0, 4, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+              >
+                →
+              </motion.span>
+            </motion.div>
+          </Link>
+
+          {/* Secondary */}
+          <Link href="/game/chapters" style={{ textDecoration: 'none' }}>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '15px 28px',
+                background: 'rgba(0,0,0,0.35)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 4,
+                fontFamily: 'var(--font-barlow)',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+                color: 'var(--ws-sand)',
+                cursor: 'pointer',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              Semua Chapter
+            </motion.div>
+          </Link>
+        </motion.div>
+      </div>
+
+      {/* ── Scroll indicator ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5 }}
+        style={{
+          position: 'absolute',
+          bottom: 28,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: 'var(--font-dm-sans)',
+            fontSize: '0.52rem',
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            color: 'rgba(221,219,216,0.25)',
+          }}
+        >
+          scroll
+        </span>
+        <motion.div
+          animate={{ height: [16, 28, 16] }}
+          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+          style={{
+            width: 1,
+            background:
+              'linear-gradient(to bottom, rgba(255,255,255,0.3), transparent)',
+          }}
+        />
+      </motion.div>
+    </section>
   )
 }
 
-// ── MAIN PAGE ─────────────────────────────────────────────────────
-export default function GamePage() {
+// ── No Ongoing Chapter ────────────────────────────────────────────
+function NoOngoingHero({ userName }: { userName: string }) {
+  return (
+    <section
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        background: '#070d0e',
+      }}
+    >
+      {/* Subtle grid */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.025,
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+        }}
+      />
+
+      <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          style={{
+            fontFamily: 'var(--font-dm-sans)',
+            fontSize: '0.6rem',
+            letterSpacing: '0.35em',
+            textTransform: 'uppercase',
+            color: 'var(--ws-red)',
+            marginBottom: 14,
+          }}
+        >
+          City Hunt
+        </motion.p>
+
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.7 }}
+          style={{
+            fontFamily: 'var(--font-barlow)',
+            fontWeight: 900,
+            fontSize: 'clamp(3rem, 8vw, 7rem)',
+            textTransform: 'uppercase',
+            lineHeight: 0.9,
+            color: 'rgba(221,219,216,0.15)',
+            letterSpacing: '-0.02em',
+            marginBottom: 32,
+          }}
+        >
+          TIDAK ADA
+          <br />
+          CHAPTER AKTIF
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          style={{
+            fontFamily: 'var(--font-dm-sans)',
+            fontSize: '0.88rem',
+            color: 'var(--ws-gray)',
+            marginBottom: 36,
+          }}
+        >
+          Chapter berikutnya segera hadir. Pantau terus halaman chapters.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.75 }}
+        >
+          <Link
+            href="/game/chapters"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '13px 32px',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 4,
+              fontFamily: 'var(--font-barlow)',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              color: 'var(--ws-sand)',
+              textDecoration: 'none',
+            }}
+          >
+            Lihat Semua Chapter →
+          </Link>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+// ── Rewards Preview Section ───────────────────────────────────────
+function RewardsSection() {
+  return (
+    <section
+      style={{
+        background: '#070d0e',
+        padding: '80px max(5%, 48px)',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Top divider */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          background:
+            'linear-gradient(to right, transparent, rgba(236,43,37,0.3), transparent)',
+        }}
+      />
+
+      {/* Ghost text */}
+      <div
+        style={{
+          position: 'absolute',
+          right: -20,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          fontFamily: 'var(--font-barlow)',
+          fontWeight: 900,
+          fontSize: 'clamp(6rem, 15vw, 12rem)',
+          color: 'rgba(255,255,255,0.02)',
+          letterSpacing: '-0.03em',
+          userSelect: 'none',
+          pointerEvents: 'none',
+          lineHeight: 1,
+        }}
+      >
+        REWARDS
+      </div>
+
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {/* Section header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            marginBottom: 44,
+            flexWrap: 'wrap',
+            gap: 16,
+          }}
+        >
+          <div>
+            <p
+              style={{
+                fontFamily: 'var(--font-dm-sans)',
+                fontSize: '0.6rem',
+                letterSpacing: '0.3em',
+                textTransform: 'uppercase',
+                color: 'var(--ws-gold)',
+                marginBottom: 8,
+              }}
+            >
+              Yang Bisa Kamu Menangkan
+            </p>
+            <h2
+              style={{
+                fontFamily: 'var(--font-barlow)',
+                fontWeight: 900,
+                fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+                textTransform: 'uppercase',
+                color: 'var(--ws-cream)',
+                lineHeight: 0.92,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Rewards
+              <br />
+              <span
+                style={{
+                  color: 'rgba(221,219,216,0.2)',
+                  fontSize: '0.5em',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                Chapter Ini
+              </span>
+            </h2>
+          </div>
+
+          <Link
+            href="/game/rewards"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              fontFamily: 'var(--font-barlow)',
+              fontWeight: 700,
+              fontSize: '0.68rem',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              color: 'var(--ws-gray)',
+              textDecoration: 'none',
+              transition: 'color 0.2s',
+              paddingBottom: 4,
+            }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = 'var(--ws-gold)')
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = 'var(--ws-gray)')
+            }
+          >
+            Lihat Semua Rewards →
+          </Link>
+        </div>
+
+        {/* Reward cards */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {REWARDS_PREVIEW.map((reward, i) => (
+            <motion.div
+              key={reward.title}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ delay: i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'relative',
+                background: 'rgba(255,255,255,0.025)',
+                border: `1px solid ${reward.color}20`,
+                borderRadius: 10,
+                padding: '28px 24px',
+                overflow: 'hidden',
+                transition: 'border-color 0.3s, transform 0.3s',
+              }}
+              whileHover={{
+                y: -6,
+                borderColor: reward.color + '50',
+              }}
+            >
+              {/* Top accent */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 2,
+                  background: reward.color,
+                  opacity: 0.5,
+                }}
+              />
+
+              {/* Icon + value row */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  marginBottom: 20,
+                }}
+              >
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 10,
+                    background: `${reward.color}12`,
+                    border: `1px solid ${reward.color}25`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                  }}
+                >
+                  {reward.icon}
+                </div>
+
+                <span
+                  style={{
+                    fontFamily: 'var(--font-barlow)',
+                    fontWeight: 900,
+                    fontSize: '0.75rem',
+                    color: reward.color,
+                    letterSpacing: '1px',
+                    padding: '4px 10px',
+                    background: `${reward.color}10`,
+                    border: `1px solid ${reward.color}25`,
+                    borderRadius: 20,
+                  }}
+                >
+                  {reward.value}
+                </span>
+              </div>
+
+              <h3
+                style={{
+                  fontFamily: 'var(--font-barlow)',
+                  fontWeight: 900,
+                  fontSize: '1.1rem',
+                  textTransform: 'uppercase',
+                  color: 'var(--ws-cream)',
+                  marginBottom: 6,
+                  lineHeight: 1.1,
+                }}
+              >
+                {reward.title}
+              </h3>
+              <p
+                style={{
+                  fontFamily: 'var(--font-dm-sans)',
+                  fontSize: '0.78rem',
+                  color: 'var(--ws-gray)',
+                  lineHeight: 1.5,
+                }}
+              >
+                {reward.desc}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────
+export default function GameHomePage() {
   const router = useRouter()
-  const { user, loading: authLoading, logout } = useAuth()
-  const [phase, setPhase] = useState<Phase>('loading')
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [session, setSession] = useState<Session | null>(null)
+  const { user, loading: authLoading } = useAuth()
 
   useEffect(() => {
-    if (authLoading) return
-    if (!user) { router.replace('/login?from=/game'); return }
-    questionsApi.list()
-      .then(r => { setQuestions(r.questions); setPhase('briefing') })
-      .catch(() => { setPhase('briefing') })
-  }, [user, authLoading]) // eslint-disable-line
+    if (!authLoading && !user) {
+      router.replace('/login?from=/game')
+    }
+  }, [user, authLoading, router])
 
-  const handleStart = async () => {
-    try {
-      const res = await sessionsApi.start()
-      setSession(res.session); setPhase('quiz')
-    } catch { alert('Gagal memulai sesi. Coba refresh halaman.') }
-  }
+  const ongoingChapters = getOngoingChapters()
+  const activeChapter = ongoingChapters[0] ?? null
 
-  const handleLogout = () => { logout(); router.push('/') }
-
-  if (authLoading || (phase === 'loading' && user)) {
+  if (authLoading || !user) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--ws-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#070d0e',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          style={{ width: 28, height: 28, border: '2px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--ws-red)', borderRadius: '50%' }}
+          style={{
+            width: 28,
+            height: 28,
+            border: '2px solid rgba(255,255,255,0.08)',
+            borderTopColor: 'var(--ws-red)',
+            borderRadius: '50%',
+          }}
         />
       </div>
     )
   }
 
   return (
-    <div className="game-page" style={{ minHeight: '100vh', background: '#070d0e', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ background: '#070d0e' }}>
+      <GameNav />
 
-      {/* Ambient red glow top */}
-      <div style={{
-        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
-        background: 'radial-gradient(ellipse 60% 35% at 50% -5%, rgba(236,43,37,0.14) 0%, transparent 65%)',
-      }} />
+      {/* Hero */}
+      {activeChapter ? (
+        <HeroChapter chapter={activeChapter} userName={user.name} />
+      ) : (
+        <NoOngoingHero userName={user.name} />
+      )}
 
-      {/* Subtle grid */}
-      <div style={{
-        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, opacity: 0.025,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
-        backgroundSize: '60px 60px',
-      }} />
-
-      {/* ── NAVBAR ── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        borderBottom: '1px solid rgba(221,219,216,0.06)',
-        background: 'rgba(7,13,14,0.92)', backdropFilter: 'blur(14px)',
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          padding: '0 48px',
-          height: 80,
-        }}>
-
-          {/* KIRI: Chapters */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 32, paddingRight: 36 }}>
-            <Link href="/game/chapters" style={{
-              fontFamily: 'var(--font-barlow)', fontWeight: 700,
-              fontSize: '0.72rem', letterSpacing: '0.12em',
-              textTransform: 'uppercase', color: 'var(--ws-sand)',
-              textDecoration: 'none', transition: 'color 0.2s',
-            }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--ws-cream)'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--ws-sand)'}
-            >Chapters</Link>
-
-            {/* Live badge — only during quiz */}
-            {phase === 'quiz' && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'rgba(236,43,37,0.1)',
-                  border: '1px solid rgba(236,43,37,0.25)',
-                  borderRadius: 20, padding: '4px 12px',
-                }}
-              >
-                <motion.span
-                  animate={{ opacity: [1, 0.25, 1] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  style={{ display: 'block', width: 5, height: 5, borderRadius: '50%', background: 'var(--ws-red)' }}
-                />
-                <span style={{
-                  fontFamily: 'var(--font-barlow)', fontWeight: 700,
-                  fontSize: '0.58rem', letterSpacing: '2px',
-                  textTransform: 'uppercase', color: 'var(--ws-red)',
-                }}>LIVE</span>
-              </motion.div>
-            )}
-          </div>
-
-          {/* TENGAH: Logo */}
-          <Link href="/" style={{ flexShrink: 0, display: 'block' }}>
-            <div style={{ position: 'relative', width: 180, height: 72 }}>
-              <img
-                src="/assets/logo-white.png"
-                alt="Wondershock Theatre"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-              />
-            </div>
-          </Link>
-
-          {/* KANAN: Rewards + user + keluar */}
-          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 36, gap: 24 }}>
-            <Link href="/game/rewards" style={{
-              fontFamily: 'var(--font-barlow)', fontWeight: 700,
-              fontSize: '0.72rem', letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              textDecoration: 'none', transition: 'color 0.2s',
-              display: 'flex', alignItems: 'center', gap: 6,
-              color: 'var(--ws-gold)',
-            }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.75'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
-            >
-              <span style={{ fontSize: '0.85rem' }}>🏆</span> Rewards
-            </Link>
-
-            <div style={{ flex: 1 }} />
-
-            {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: 'var(--ws-red)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--font-barlow)', fontWeight: 900,
-                  fontSize: '0.65rem', color: 'white', flexShrink: 0,
-                }}>
-                  {user.name.charAt(0).toUpperCase()}
-                </span>
-                <span style={{
-                  fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem',
-                  color: 'rgba(221,219,216,0.55)',
-                }}>{user.name.split(' ')[0]}</span>
-              </div>
-            )}
-
-            <button
-              onClick={handleLogout}
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 4, padding: '6px 14px',
-                color: 'rgba(221,219,216,0.4)',
-                fontFamily: 'var(--font-barlow)', fontWeight: 700,
-                fontSize: '0.6rem', letterSpacing: '1.5px',
-                textTransform: 'uppercase', cursor: 'pointer',
-                transition: 'all 0.2s', flexShrink: 0,
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(236,43,37,0.4)'; (e.currentTarget as HTMLElement).style.color = 'var(--ws-red)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'rgba(221,219,216,0.4)' }}
-            >Keluar</button>
-          </div>
-
-        </div>
-      </nav>
-
-      {/* ── MAIN CONTENT ── */}
-      <main style={{
-        minHeight: '100vh',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '100px max(5%, 24px) 60px',
-        position: 'relative', zIndex: 1,
-      }}>
-        <AnimatePresence mode="wait">
-          {phase === 'briefing' && user && (
-            <motion.div key="briefing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <BriefingScreen userName={user.name} questionCount={questions.length} onStart={handleStart} />
-            </motion.div>
-          )}
-          {phase === 'quiz' && session && questions.length > 0 && (
-            <motion.div key="quiz" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-              <QuizScreen questions={questions} session={session} onDone={() => setPhase('done')} />
-            </motion.div>
-          )}
-          {phase === 'done' && user && (
-            <motion.div key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <DoneScreen userName={user.name} total={questions.length} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+      {/* Rewards preview */}
+      <RewardsSection />
     </div>
   )
 }
