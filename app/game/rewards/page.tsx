@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/authContext'
+import GameNav from '@/components/game/GameNav'
 
 type RewardType = 'voucher' | 'ticket' | 'merchandise' | 'experience'
 type RewardStatus = 'available' | 'claimed' | 'expired'
@@ -35,7 +36,7 @@ const ALL_REWARDS: Reward[] = [
     title: 'Tiket Gratis — AHA Moment #3',
     description: 'Dapatkan 2 tiket gratis untuk show AHA Moment #3. Berlaku untuk semua kategori kursi.',
     chapter: 'Kota Dalam Diam',
-    requirement: 'Selesaikan chapter dengan waktu tercepat',
+    requirement: 'Selesaikan semua soal dalam chapter',
     value: '2 Tiket (2×Rp 150.000)',
     status: 'available',
     expires_at: '2026-04-30',
@@ -48,7 +49,7 @@ const ALL_REWARDS: Reward[] = [
     title: 'Voucher Workshop 50%',
     description: 'Diskon 50% untuk satu workshop pilihan. Berlaku untuk semua workshop yang akan datang.',
     chapter: 'Kota Dalam Diam',
-    requirement: 'Jawab semua soal dengan benar tanpa hint',
+    requirement: 'Selesaikan semua soal dalam chapter',
     value: 'Diskon 50%',
     status: 'available',
     expires_at: '2026-06-30',
@@ -59,9 +60,9 @@ const ALL_REWARDS: Reward[] = [
     id: 3,
     type: 'merchandise',
     title: 'Kaos Eksklusif Wondershock',
-    description: 'Kaos limited edition dengan desain khusus City Hunt. Dikirim ke alamat pemenang.',
+    description: 'Kaos limited edition dengan desain khusus City Hunt. Dikirim ke alamat peserta.',
     chapter: 'Kota Dalam Diam',
-    requirement: 'Masuk 3 besar leaderboard',
+    requirement: 'Selesaikan semua soal dalam chapter',
     value: 'Merchandise Eksklusif',
     status: 'available',
     expires_at: '2026-04-15',
@@ -74,7 +75,7 @@ const ALL_REWARDS: Reward[] = [
     title: 'Tiket Gratis — My Story. My Brand.',
     description: 'Satu tiket gratis untuk workshop My Story. My Brand. senilai Rp 250.000.',
     chapter: 'Malam Tanpa Batas',
-    requirement: 'Pemenang utama chapter',
+    requirement: 'Selesaikan semua soal dalam chapter',
     value: '1 Tiket (Rp 250.000)',
     status: 'claimed',
     claimed_by: 'Rizky Aditya',
@@ -89,7 +90,7 @@ const ALL_REWARDS: Reward[] = [
     title: 'Voucher Belanja Rp 100.000',
     description: 'Voucher belanja merchandise resmi Wondershock Theatre senilai Rp 100.000.',
     chapter: 'Jejak Rempah',
-    requirement: 'Top 5 peserta tercepat',
+    requirement: 'Selesaikan semua soal dalam chapter',
     value: 'Rp 100.000',
     status: 'claimed',
     claimed_by: 'Siti Rahma',
@@ -104,7 +105,7 @@ const ALL_REWARDS: Reward[] = [
     title: 'Behind The Stage — Akses Eksklusif',
     description: 'Tur eksklusif backstage sebelum pertunjukan dimulai. Bertemu langsung dengan para performer.',
     chapter: 'Akar Kota',
-    requirement: 'Pemenang utama chapter perdana',
+    requirement: 'Selesaikan semua soal dalam chapter',
     value: 'Pengalaman Eksklusif',
     status: 'expired',
     expires_at: '2025-06-30',
@@ -314,37 +315,7 @@ export default function RewardsPage() {
       {/* Ambient glow */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'radial-gradient(ellipse 60% 35% at 50% -5%, rgba(246,188,5,0.07) 0%, transparent 60%)' }} />
 
-      {/* ── NAVBAR ── */}
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, borderBottom: '1px solid rgba(221,219,216,0.06)', background: 'rgba(7,13,14,0.92)', backdropFilter: 'blur(14px)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', padding: '0 48px', height: 80 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 32, paddingRight: 36 }}>
-            <Link href="/game/chapters" style={{ fontFamily: 'var(--font-barlow)', fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ws-sand)', textDecoration: 'none', transition: 'color 0.2s' }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--ws-cream)'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--ws-sand)'}
-            >Chapters</Link>
-          </div>
-          <Link href="/game" style={{ flexShrink: 0, display: 'block' }}>
-            <div style={{ width: 180, height: 72 }}>
-              <img src="/assets/logo-white.png" alt="Wondershock Theatre" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            </div>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 36, gap: 24 }}>
-            <Link href="/game/rewards" style={{ fontFamily: 'var(--font-barlow)', fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ws-cream)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>🏆</span> Rewards
-            </Link>
-            <div style={{ flex: 1 }} />
-            {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--ws-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: '0.65rem', color: 'white' }}>
-                  {user.name.charAt(0).toUpperCase()}
-                </span>
-                <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem', color: 'rgba(221,219,216,0.55)' }}>{user.name.split(' ')[0]}</span>
-              </div>
-            )}
-            <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '6px 14px', color: 'rgba(221,219,216,0.4)', fontFamily: 'var(--font-barlow)', fontWeight: 700, fontSize: '0.6rem', letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer' }}>Keluar</button>
-          </div>
-        </div>
-      </nav>
+      <GameNav />
 
       {/* ── CONTENT ── */}
       <main style={{ position: 'relative', zIndex: 1, maxWidth: 900, margin: '0 auto', padding: '120px 24px 80px' }}>

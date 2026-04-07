@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/authContext'
+import GameNav from '@/components/game/GameNav'
 import {
   CHAPTERS,
   formatDate,
@@ -415,41 +416,6 @@ function ChapterCard({
                 </div>
               )}
 
-              {/* Winner */}
-              {chapter.winner && (
-                <div
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: 'rgba(246,188,5,0.07)',
-                    border: '1px solid rgba(246,188,5,0.2)',
-                    borderRadius: 6,
-                    padding: '8px 14px',
-                    marginBottom: 16,
-                  }}
-                >
-                  <span>🏆</span>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-dm-sans)',
-                      fontSize: '0.78rem',
-                      color: 'var(--ws-gray)',
-                    }}
-                  >
-                    Pemenang:{' '}
-                    <span
-                      style={{
-                        color: 'var(--ws-gold)',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {chapter.winner}
-                    </span>
-                  </span>
-                </div>
-              )}
-
               {/* CTA */}
               {isOngoing && (
                 <div style={{ marginTop: 4 }}>
@@ -586,144 +552,7 @@ export default function ChaptersPage() {
         }}
       />
 
-      {/* ── NAVBAR ── */}
-      <nav
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          borderBottom: '1px solid rgba(221,219,216,0.06)',
-          background: 'rgba(7,13,14,0.92)',
-          backdropFilter: 'blur(14px)',
-        }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
-            alignItems: 'center',
-            padding: '0 48px',
-            height: 80,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 32,
-              paddingRight: 36,
-            }}
-          >
-            <Link
-              href="/game/chapters"
-              style={{
-                fontFamily: 'var(--font-barlow)',
-                fontWeight: 700,
-                fontSize: '0.72rem',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--ws-cream)',
-                textDecoration: 'none',
-              }}
-            >
-              Chapters
-            </Link>
-          </div>
-
-          <Link href="/game" style={{ flexShrink: 0, display: 'block' }}>
-            <div style={{ width: 180, height: 72 }}>
-              <img
-                src="/assets/logo-white.png"
-                alt="Wondershock Theatre"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                }}
-              />
-            </div>
-          </Link>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              paddingLeft: 36,
-              gap: 24,
-            }}
-          >
-            <Link
-              href="/game/rewards"
-              style={{
-                fontFamily: 'var(--font-barlow)',
-                fontWeight: 700,
-                fontSize: '0.72rem',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--ws-gold)',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span>🏆</span> Rewards
-            </Link>
-            <div style={{ flex: 1 }} />
-            {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: 'var(--ws-red)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: 'var(--font-barlow)',
-                    fontWeight: 900,
-                    fontSize: '0.65rem',
-                    color: 'white',
-                  }}
-                >
-                  {user.name.charAt(0).toUpperCase()}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-dm-sans)',
-                    fontSize: '0.78rem',
-                    color: 'rgba(221,219,216,0.55)',
-                  }}
-                >
-                  {user.name.split(' ')[0]}
-                </span>
-              </div>
-            )}
-            <button
-              onClick={handleLogout}
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 4,
-                padding: '6px 14px',
-                color: 'rgba(221,219,216,0.4)',
-                fontFamily: 'var(--font-barlow)',
-                fontWeight: 700,
-                fontSize: '0.6rem',
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-              }}
-            >
-              Keluar
-            </button>
-          </div>
-        </div>
-      </nav>
+      <GameNav />
 
       {/* ── CONTENT ── */}
       <main

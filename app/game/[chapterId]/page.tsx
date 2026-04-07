@@ -10,6 +10,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/lib/authContext'
+import GameNav from '@/components/game/GameNav'
 import {
   getChapterBySlug,
   formatTimer,
@@ -41,103 +42,7 @@ function loadSession(): StoredSession | null {
   } catch { return null }
 }
 
-// ── Shared navbar ─────────────────────────────────────────────────
-function GameNav({ accentColor }: { accentColor: string }) {
-  const { user, logout } = useAuth()
-  const router = useRouter()
-
-  return (
-    <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      borderBottom: '1px solid rgba(221,219,216,0.06)',
-      background: 'rgba(7,13,14,0.92)', backdropFilter: 'blur(14px)',
-    }}>
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-        alignItems: 'center', padding: '0 48px', height: 80,
-      }}>
-        {/* LEFT */}
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'flex-end', gap: 32, paddingRight: 36,
-        }}>
-          <Link href="/game/chapters" style={{
-            fontFamily: 'var(--font-barlow)', fontWeight: 700,
-            fontSize: '0.72rem', letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: 'var(--ws-sand)',
-            textDecoration: 'none', transition: 'color 0.2s',
-          }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--ws-cream)'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--ws-sand)'}
-          >Chapters</Link>
-        </div>
-
-        {/* CENTER */}
-        <Link href="/game" style={{ flexShrink: 0, display: 'block' }}>
-          <div style={{ width: 180, height: 72 }}>
-            <img src="/assets/logo-white.png" alt="Wondershock Theatre"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
-        </Link>
-
-        {/* RIGHT */}
-        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 36, gap: 20 }}>
-          <Link href="/game/rewards" style={{
-            fontFamily: 'var(--font-barlow)', fontWeight: 700, fontSize: '0.72rem',
-            letterSpacing: '0.12em', textTransform: 'uppercase',
-            textDecoration: 'none', display: 'flex', alignItems: 'center',
-            gap: 6, color: 'var(--ws-gold)', transition: 'opacity 0.2s',
-          }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.75'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
-          ><span>🏆</span> Rewards</Link>
-
-          <div style={{ flex: 1 }} />
-
-          {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: accentColor, transition: 'background 0.5s',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'var(--font-barlow)', fontWeight: 900,
-                fontSize: '0.65rem', color: 'white', flexShrink: 0,
-              }}>
-                {user.name.charAt(0).toUpperCase()}
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-dm-sans)', fontSize: '0.78rem',
-                color: 'rgba(221,219,216,0.55)',
-              }}>
-                {user.name.split(' ')[0]}
-              </span>
-            </div>
-          )}
-
-          <button
-            onClick={() => { logout(); router.push('/') }}
-            style={{
-              background: 'transparent', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 4, padding: '6px 14px', color: 'rgba(221,219,216,0.4)',
-              fontFamily: 'var(--font-barlow)', fontWeight: 700,
-              fontSize: '0.6rem', letterSpacing: '1.5px',
-              textTransform: 'uppercase', cursor: 'pointer',
-              transition: 'all 0.2s', flexShrink: 0,
-            }}
-            onMouseEnter={e => {
-              ;(e.currentTarget as HTMLElement).style.borderColor = `${accentColor}60`
-              ;(e.currentTarget as HTMLElement).style.color = accentColor
-            }}
-            onMouseLeave={e => {
-              ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'
-              ;(e.currentTarget as HTMLElement).style.color = 'rgba(221,219,216,0.4)'
-            }}
-          >Keluar</button>
-        </div>
-      </div>
-    </nav>
-  )
-}
+// GameNav is now a shared component at components/game/GameNav.tsx
 
 // ── Stat pill ─────────────────────────────────────────────────────
 function StatPill({ icon, label, value, color }: {
@@ -514,30 +419,6 @@ export default function ChapterBriefingPage() {
               </motion.div>
             )}
 
-            {/* Winner */}
-            {chapter.status === 'expired' && chapter.winner && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.42 }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  background: 'rgba(246,188,5,0.07)', border: '1px solid rgba(246,188,5,0.2)',
-                  borderRadius: 8, padding: '12px 18px', marginTop: 8,
-                }}
-              >
-                <span style={{ fontSize: '1.1rem' }}>🏆</span>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: '0.72rem', color: 'var(--ws-gray)' }}>
-                    Pemenang chapter
-                  </p>
-                  <p style={{
-                    fontFamily: 'var(--font-barlow)', fontWeight: 700,
-                    fontSize: '1rem', color: 'var(--ws-gold)', textTransform: 'uppercase',
-                  }}>{chapter.winner}</p>
-                </div>
-              </motion.div>
-            )}
           </div>
 
           {/* RIGHT: stats card + CTA */}

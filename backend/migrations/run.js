@@ -17,9 +17,17 @@ async function run() {
   try {
     console.log('\n▶  Running migrations...')
 
-    const sql = fs.readFileSync(path.join(__dirname, '001_init.sql'), 'utf8')
-    await client.query(sql)
-    console.log('   ✓ Schema applied')
+    const migrations = [
+      '001_init.sql',
+      '002_events.sql',
+      '003_events_detail.sql',
+      '004_chapters_rewards.sql',
+    ]
+    for (const file of migrations) {
+      const sql = fs.readFileSync(path.join(__dirname, file), 'utf8')
+      await client.query(sql)
+      console.log(`   ✓ ${file}`)
+    }
 
     // Seed admin
     const { ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD } = process.env

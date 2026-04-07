@@ -52,6 +52,7 @@ export interface Question {
   penalty_seconds: number
   hint?: string
   order_num: number
+  chapter_id?: string
   // admin only:
   answer_key?: string
   similarity_threshold?: number
@@ -121,8 +122,8 @@ export const authApi = {
 
 // ── Questions ──
 export const questionsApi = {
-  list: () => apiFetch<{ questions: Question[] }>('/api/questions'),
-  listAdmin: () => apiFetch<{ questions: Question[] }>('/api/questions/admin'),
+  list: (chapterId?: string) => apiFetch<{ questions: Question[] }>(`/api/questions${chapterId ? `?chapter_id=${chapterId}` : ''}`),
+  listAdmin: (chapterId?: string) => apiFetch<{ questions: Question[] }>(`/api/questions/admin${chapterId ? `?chapter_id=${chapterId}` : ''}`),
   create: (data: Partial<Question>) =>
     apiFetch<{ question: Question }>('/api/questions', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<Question>) =>
@@ -140,7 +141,7 @@ export const sessionsApi = {
     apiFetch<{ session: Session; passed_count: number; total_count: number; passed_ids: string[] }>(
       `/api/sessions/${id}/progress`
     ),
-  listAdmin: () => apiFetch<{ sessions: (Session & { user_name: string; passed_count: number })[] }>('/api/sessions'),
+  listAdmin: (chapterId?: string) => apiFetch<{ sessions: (Session & { user_name: string; passed_count: number })[] }>(`/api/sessions${chapterId ? `?chapter_id=${chapterId}` : ''}`),
 }
 
 // ── Answers ──
@@ -160,7 +161,7 @@ export const answersApi = {
     return apiFetchForm<SubmitResult>('/api/answers/submit', form)
   },
 
-  listAdmin: (params?: { question_id?: string; passed?: boolean }) => {
+  listAdmin: (params?: { question_id?: string; passed?: boolean; chapter_id?: string }) => {
     const qs = params
       ? '?' + new URLSearchParams(
           Object.entries(params)
@@ -173,6 +174,66 @@ export const answersApi = {
 
   detail: (id: string) => apiFetch<{ answer: Answer }>(`/api/answers/${id}/detail`),
   bySession: (sessionId: string) => apiFetch<{ answers: Answer[] }>(`/api/answers/session/${sessionId}`),
+}
+
+// ── Chapters ──
+export interface ChapterDB {
+  id: string
+  slug: string
+  title: string
+  subtitle?: string
+  location?: string
+  city?: string
+  status: 'ongoing' | 'upcoming' | 'expired'
+  bg_image?: string
+  color: string
+  tags: string[]
+  date_start?: string
+  date_end?: string
+  description?: string
+  timer_seconds: number
+  hint_penalty_seconds: number
+  order_num: number
+  is_active: boolean
+  question_count?: number
+  participants?: number
+  created_at?: string
+}
+
+export interface RewardDB {
+  id: string
+  chapter_id: string
+  title: string
+  description?: string
+  type: 'ticket' | 'voucher' | 'merchandise' | 'experience'
+  icon: string
+  value?: string
+  requirement?: string
+  order_num: number
+  is_active: boolean
+  created_at?: string
+}
+
+export const chaptersApi = {
+  list: () => apiFetch<{ chapters: ChapterDB[] }>('/api/chapters'),
+  listAdmin: () => apiFetch<{ chapters: ChapterDB[] }>('/api/chapters/admin'),
+  getBySlug: (slug: string) => apiFetch<{ chapter: ChapterDB }>(`/api/chapters/${slug}`),
+  create: (data: Partial<ChapterDB>) =>
+    apiFetch<{ chapter: ChapterDB }>('/api/chapters', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<ChapterDB>) =>
+    apiFetch<{ chapter: ChapterDB }>(`/api/chapters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    apiFetch<{ message: string }>(`/api/chapters/${id}`, { method: 'DELETE' }),
+
+  // Rewards
+  rewards: (chapterId: string) =>
+    apiFetch<{ rewards: RewardDB[] }>(`/api/chapters/${chapterId}/rewards`),
+  createReward: (chapterId: string, data: Partial<RewardDB>) =>
+    apiFetch<{ reward: RewardDB }>(`/api/chapters/${chapterId}/rewards`, { method: 'POST', body: JSON.stringify(data) }),
+  updateReward: (rewardId: string, data: Partial<RewardDB>) =>
+    apiFetch<{ reward: RewardDB }>(`/api/chapters/rewards/${rewardId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteReward: (rewardId: string) =>
+    apiFetch<{ message: string }>(`/api/chapters/rewards/${rewardId}`, { method: 'DELETE' }),
 }
 
 // ── Token helpers ──

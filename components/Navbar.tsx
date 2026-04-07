@@ -139,6 +139,11 @@ export default function Navbar() {
                 pointerEvents: menuOpen ? 'none' : 'auto',
               }}
             >
+              <Link href="/game" className="nav-link"
+                style={{ color: 'var(--ws-sand)', textDecoration: 'none', transition: 'color 0.25s' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--ws-cream)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--ws-sand)')}
+              >Game</Link>
               {['Script', 'Support'].map((item) => (
                 <a key={item} href={`#${item.toLowerCase()}`} className="nav-link"
                   style={{ color: 'var(--ws-sand)', textDecoration: 'none', transition: 'color 0.25s' }}

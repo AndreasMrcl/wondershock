@@ -102,36 +102,45 @@ export default function DonePage() {
 
       {/* ── Confetti — hanya saat done ── */}
       {!isExpired && (
-        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{
-                y: -20,
-                x: `${5 + i * 4.5}%`,
-                opacity: 1,
-                rotate: Math.random() * 360,
-              }}
-              animate={{
-                y: '110vh',
-                opacity: [1, 1, 0],
-                rotate: Math.random() * 720,
-              }}
-              transition={{
-                delay: 0.3 + i * 0.08,
-                duration: 2.5 + Math.random() * 1.5,
-                ease: 'easeIn',
-              }}
-              style={{
-                position: 'absolute',
-                top: 0,
-                width: i % 4 === 0 ? 10 : i % 3 === 0 ? 7 : 5,
-                height: i % 4 === 0 ? 10 : i % 3 === 0 ? 7 : 5,
-                borderRadius: i % 2 === 0 ? '50%' : 2,
-                background: confettiColors[i % confettiColors.length],
-              }}
-            />
-          ))}
+        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 2, overflow: 'hidden' }}>
+          {[...Array(30)].map((_, i) => {
+            const left = 3 + Math.random() * 94 // 3% – 97% spread across screen
+            const size = 4 + Math.random() * 8
+            const delay = 0.2 + Math.random() * 1.2
+            const duration = 2 + Math.random() * 2
+            const drift = -40 + Math.random() * 80 // horizontal drift
+            return (
+              <motion.div
+                key={i}
+                initial={{
+                  y: -20,
+                  x: 0,
+                  opacity: 1,
+                  rotate: Math.random() * 360,
+                }}
+                animate={{
+                  y: '110vh',
+                  x: drift,
+                  opacity: [1, 1, 0.8, 0],
+                  rotate: Math.random() * 720,
+                }}
+                transition={{
+                  delay,
+                  duration,
+                  ease: 'easeIn',
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: `${left}%`,
+                  width: size,
+                  height: size,
+                  borderRadius: i % 2 === 0 ? '50%' : 2,
+                  background: confettiColors[i % confettiColors.length],
+                }}
+              />
+            )
+          })}
         </div>
       )}
 

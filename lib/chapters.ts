@@ -19,7 +19,6 @@ export interface Chapter {
   tags: string[]
   date_start: string
   date_end: string
-  winner?: string
   description: string
   // Mekanisme game
   timer_seconds: number        // total timer satu chapter
@@ -46,7 +45,7 @@ export const CHAPTERS: Chapter[] = [
     description:
       'Telusuri sudut-sudut tersembunyi Kota Lama. Temukan cerita di balik bangunan tua yang diam menyimpan sejarah.',
     timer_seconds: 88 * 60,
-    hint_penalty_seconds: 3 * 60,
+    hint_penalty_seconds: 10 * 60,
   },
   {
     id: 3,
@@ -64,11 +63,11 @@ export const CHAPTERS: Chapter[] = [
     tags: ['Malam', 'Urban', 'Seni'],
     date_start: '2025-11-01',
     date_end: '2025-12-31',
-    winner: 'Rizky Aditya',
+
     description:
       'Jelajahi Braga di malam hari. Setiap lampu, setiap sudut menyimpan tantangan yang menguji ketajaman mata dan pikiran.',
     timer_seconds: 90 * 60,
-    hint_penalty_seconds: 3 * 60,
+    hint_penalty_seconds: 10 * 60,
   },
   {
     id: 2,
@@ -86,11 +85,11 @@ export const CHAPTERS: Chapter[] = [
     tags: ['Budaya', 'Kuliner', 'Sejarah'],
     date_start: '2025-07-15',
     date_end: '2025-09-15',
-    winner: 'Siti Rahma',
+
     description:
       'Ikuti jalur perdagangan rempah yang pernah mengubah dunia. Dari pasar kuno hingga keraton, sejarah berbicara.',
     timer_seconds: 100 * 60,
-    hint_penalty_seconds: 5 * 60,
+    hint_penalty_seconds: 10 * 60,
   },
   {
     id: 1,
@@ -108,11 +107,11 @@ export const CHAPTERS: Chapter[] = [
     tags: ['Perdana', 'Sejarah', 'Jakarta'],
     date_start: '2025-02-01',
     date_end: '2025-04-30',
-    winner: 'Bimo Wicaksono',
+
     description:
       'Chapter perdana Wondershock City Hunt. Menggali akar sejarah ibu kota dari sudut yang jarang diperhatikan.',
     timer_seconds: 60 * 60,
-    hint_penalty_seconds: 2 * 60,
+    hint_penalty_seconds: 10 * 60,
   },
   {
     id: 5,
@@ -133,7 +132,7 @@ export const CHAPTERS: Chapter[] = [
     description:
       'Chapter berikutnya membawa kamu ke lautan. Segera hadir — persiapkan dirimu.',
     timer_seconds: 88 * 60,
-    hint_penalty_seconds: 3 * 60,
+    hint_penalty_seconds: 10 * 60,
   },
 ]
 

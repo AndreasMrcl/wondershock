@@ -83,19 +83,32 @@ router.get('/:id/progress', auth, async (req, res) => {
 })
 
 // ── GET /api/sessions ── Semua sesi (admin)
-router.get('/', adminAuth, async (_req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   try {
+    const conditions = []
+    const params = []
+    if (req.query.chapter_id) {
+      params.push(req.query.chapter_id)
+      conditions.push(`q.chapter_id = $${params.length}`)
+    }
+    const having = conditions.length > 0 ? `HAVING COUNT(DISTINCT a.id) FILTER (WHERE ${conditions.join(' AND ')}) > 0` : ''
+    // When filtering by chapter, join questions to filter
+    const extraJoin = req.query.chapter_id ? 'LEFT JOIN questions q ON a.question_id = q.id' : ''
+    const chapterFilter = req.query.chapter_id ? `AND q.chapter_id = $1` : ''
     const { rows } = await db.query(
       `SELECT
          qs.*,
          u.name  AS user_name,
          u.email AS user_email,
-         COUNT(DISTINCT a.question_id) FILTER (WHERE a.passed = TRUE) AS passed_count
+         COUNT(DISTINCT a.question_id) FILTER (WHERE a.passed = TRUE ${chapterFilter}) AS passed_count
        FROM   quiz_sessions qs
        JOIN   users u ON qs.user_id = u.id
        LEFT JOIN answers a ON qs.id = a.session_id
+       ${extraJoin}
        GROUP  BY qs.id, u.name, u.email
-       ORDER  BY qs.started_at DESC`
+       ${req.query.chapter_id ? 'HAVING COUNT(DISTINCT a.question_id) FILTER (WHERE q.chapter_id = $1) > 0' : ''}
+       ORDER  BY qs.started_at DESC`,
+      params
     )
     res.json({ sessions: rows })
   } catch (err) {

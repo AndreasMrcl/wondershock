@@ -189,7 +189,7 @@ export default function PlayPage() {
     passed: boolean
     hint?: string
   } | null>(null)
-  const [showCorrectFlash, setShowCorrectFlash] = useState(false)
+  const [flashColor, setFlashColor] = useState<string | null>(null)
 
   // Hint state
   const [showHintText, setShowHintText] = useState(false)
@@ -294,12 +294,12 @@ export default function PlayPage() {
             ? await answersApi.submitText(session.id, question.id, value as string)
             : await answersApi.submitFile(session.id, question.id, type, value as File)
 
-        setLastResult({ passed: result.passed, hint: result.hint })
+        setLastResult({ passed: result.passed })
 
         if (result.passed) {
           // Flash hijau
-          setShowCorrectFlash(true)
-          setTimeout(() => setShowCorrectFlash(false), 600)
+          setFlashColor('#4ade80')
+          setTimeout(() => setFlashColor(null), 600)
 
           // Advance ke soal berikutnya setelah 1.3 detik
           setTimeout(() => {
@@ -309,8 +309,22 @@ export default function PlayPage() {
               setQIndex((i) => i + 1)
             }
           }, 1300)
+        } else {
+          // Flash merah + penalti 3 menit
+          setFlashColor('#ec2b25')
+          setTimeout(() => setFlashColor(null), 600)
+
+          const wrongPenalty = 3 * 60 // 3 menit
+          timer.penalise(wrongPenalty)
+
+          if (storedRef.current) {
+            storedRef.current = {
+              ...storedRef.current,
+              penalisedSeconds: storedRef.current.penalisedSeconds + wrongPenalty,
+            }
+            saveSession(storedRef.current)
+          }
         }
-        // Jawaban salah → tidak ada penalti timer, user coba ulang
       } catch (e: unknown) {
         setLastResult({
           passed: false,
@@ -504,7 +518,7 @@ export default function PlayPage() {
     >
       {/* ── Correct flash overlay ── */}
       <AnimatePresence>
-        {showCorrectFlash && <CorrectFlash color={color} />}
+        {flashColor && <CorrectFlash color={flashColor} />}
       </AnimatePresence>
 
       {/* ── Hint penalty modal ── */}

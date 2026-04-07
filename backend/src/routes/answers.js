@@ -88,12 +88,22 @@ router.post('/submit', auth, upload.single('file'), async (req, res) => {
       const mimeType    = req.file.mimetype
       const threshold   = question.ai_confidence_threshold || 0.75
 
+      console.log('[answers] AI validation →', {
+        answer_type,
+        answer_key: question.answer_key,
+        threshold,
+        mimeType,
+        bufferSize: fileBuffer?.length,
+      })
+
       let aiResult
       if (answer_type === 'photo') {
         aiResult = await validateImage(fileBuffer, mimeType, question.answer_key, threshold)
       } else {
         aiResult = await validateVideo(fileBuffer, question.answer_key, threshold)
       }
+
+      console.log('[answers] AI result →', aiResult)
 
       passed       = aiResult.passed
       aiReason     = aiResult.reason
@@ -188,6 +198,10 @@ router.get('/admin', adminAuth, async (req, res) => {
     if (req.query.session_id) {
       params.push(req.query.session_id)
       conditions.push(`a.session_id = $${params.length}`)
+    }
+    if (req.query.chapter_id) {
+      params.push(req.query.chapter_id)
+      conditions.push(`q.chapter_id = $${params.length}`)
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''

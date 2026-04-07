@@ -190,7 +190,7 @@ export default function AnswerInput({ question, onSubmit, loading, lastResult }:
             }}
           >
             <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
-              {lastResult.hint || 'Jawaban belum tepat. Coba lagi!'}
+              Jawaban belum tepat. Coba lagi!
             </p>
           </motion.div>
         )}

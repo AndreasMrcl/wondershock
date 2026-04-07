@@ -25,13 +25,22 @@ router.get('/', auth, async (_req, res) => {
 })
 
 // ── GET /api/questions/admin ── Semua soal termasuk answer_key (admin)
-router.get('/admin', adminAuth, async (_req, res) => {
+router.get('/admin', adminAuth, async (req, res) => {
   try {
+    const conditions = []
+    const params = []
+    if (req.query.chapter_id) {
+      params.push(req.query.chapter_id)
+      conditions.push(`q.chapter_id = $${params.length}`)
+    }
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
     const { rows } = await db.query(
       `SELECT q.*, u.name AS created_by_name
        FROM   questions q
        LEFT JOIN users u ON q.created_by = u.id
-       ORDER  BY q.order_num ASC, q.created_at ASC`
+       ${where}
+       ORDER  BY q.order_num ASC, q.created_at ASC`,
+      params
     )
     res.json({ questions: rows })
   } catch (err) {
@@ -64,7 +73,7 @@ router.post('/', adminAuth, async (req, res) => {
       question_text, location_name, answer_type = 'any',
       answer_key, similarity_threshold = 0.7,
       ai_confidence_threshold = 0.75, timer_seconds = 120,
-      penalty_seconds = 30, hint, order_num = 0,
+      penalty_seconds = 30, hint, order_num = 0, chapter_id,
     } = req.body
 
     if (!question_text || !location_name || !answer_key)
@@ -74,13 +83,14 @@ router.post('/', adminAuth, async (req, res) => {
       `INSERT INTO questions
          (question_text, location_name, answer_type, answer_key,
           similarity_threshold, ai_confidence_threshold, timer_seconds,
-          penalty_seconds, hint, order_num, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          penalty_seconds, hint, order_num, chapter_id, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        RETURNING *`,
       [
         question_text.trim(), location_name.trim(), answer_type,
         answer_key.trim(), similarity_threshold, ai_confidence_threshold,
-        timer_seconds, penalty_seconds, hint || null, order_num, req.user.id,
+        timer_seconds, penalty_seconds, hint || null, order_num,
+        chapter_id || null, req.user.id,
       ]
     )
     res.status(201).json({ question: rows[0] })
@@ -115,7 +125,7 @@ router.put('/:id', adminAuth, async (req, res) => {
     const {
       question_text, location_name, answer_type, answer_key,
       similarity_threshold, ai_confidence_threshold, timer_seconds,
-      penalty_seconds, hint, order_num, is_active,
+      penalty_seconds, hint, order_num, is_active, chapter_id,
     } = req.body
 
     const { rows } = await db.query(
@@ -131,13 +141,14 @@ router.put('/:id', adminAuth, async (req, res) => {
          hint                    = COALESCE($9,  hint),
          order_num               = COALESCE($10, order_num),
          is_active               = COALESCE($11, is_active),
+         chapter_id              = COALESCE($12, chapter_id),
          updated_at              = NOW()
-       WHERE id = $12
+       WHERE id = $13
        RETURNING *`,
       [
         question_text, location_name, answer_type, answer_key,
         similarity_threshold, ai_confidence_threshold, timer_seconds,
-        penalty_seconds, hint, order_num, is_active, req.params.id,
+        penalty_seconds, hint, order_num, is_active, chapter_id, req.params.id,
       ]
     )
     if (rows.length === 0)
