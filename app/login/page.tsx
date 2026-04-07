@@ -310,5 +310,4 @@ const inputStyle: React.CSSProperties = {
   fontSize: '0.92rem',
   outline: 'none',
   transition: 'border-color 0.2s',
-  width: '100%',
 }

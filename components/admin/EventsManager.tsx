@@ -20,7 +20,7 @@ interface Event {
 }
 
 const EMPTY_FORM = {
-  title: '', subtitle: '', date: '', type: 'show' as const,
+  title: '', subtitle: '', date: '', type: 'show' as 'show' | 'workshop' | 'special',
   image_url: '', price: '', description: '', order_num: 0, is_active: true,
 }
 

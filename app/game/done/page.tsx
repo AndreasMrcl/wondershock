@@ -3,7 +3,7 @@
 // Halaman hasil akhir setelah quiz selesai atau timer habis.
 // Query params: ?chapter=[slug]&reason=[done|expired]&timeLeft=[seconds]
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
@@ -19,7 +19,7 @@ function formatTimeLeft(seconds: number): string {
   return `${s} detik`
 }
 
-export default function DonePage() {
+function DoneContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -437,5 +437,13 @@ export default function DonePage() {
         </motion.div>
       </div>
     </div>
+  )
+}
+
+export default function DonePage() {
+  return (
+    <Suspense>
+      <DoneContent />
+    </Suspense>
   )
 }
